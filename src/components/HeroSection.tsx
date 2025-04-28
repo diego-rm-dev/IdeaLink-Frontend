@@ -158,14 +158,16 @@ const HeroSection = () => {
         <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-r from-idea-primary/10 via-transparent to-idea-secondary/10"></div>
       </div>
       
-      {/* CSS for floating animation */}
-      <style jsx>{`
+      {/* CSS for floating animation - Fixed the error by removing jsx:true */}
+      <style>
+        {`
         @keyframes float {
           0% { transform: translateY(0px); }
           50% { transform: translateY(-20px); }
           100% { transform: translateY(0px); }
         }
-      `}</style>
+        `}
+      </style>
     </div>
   );
 };
