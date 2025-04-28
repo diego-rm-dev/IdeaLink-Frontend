@@ -12,6 +12,7 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import InvestorsPage from "./pages/InvestorsPage";
 import PostIdeaPage from "./pages/PostIdeaPage";
+import IdeaGeneratorPage from "./pages/IdeaGeneratorPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const App = () => (
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/investors" element={<InvestorsPage />} />
           <Route path="/post-idea" element={<PostIdeaPage />} />
+          <Route path="/idea-generator" element={<IdeaGeneratorPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

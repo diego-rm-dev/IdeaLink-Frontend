@@ -19,6 +19,7 @@ The platform is powered by AI technology that analyzes each idea and provides me
 - Buy ideas outright or invest in their development
 - Seller dashboard for managing idea listings
 - Buyer/Investor dashboard for tracking opportunities
+- **NEW! AI Idea Generator** for creating unique business concepts
 
 ## Getting Started
 
@@ -64,6 +65,27 @@ export const AI_CONFIG = {
   apiKey: import.meta.env.VITE_IA_API_KEY || '',
   endpoint: import.meta.env.VITE_IA_API_ENDPOINT || ''
 };
+```
+
+### Idea Generator Configuration
+
+The Idea Generator feature uses the same AI configuration as the rest of the application. To set it up:
+
+1. Ensure your `VITE_IA_API_KEY` and `VITE_IA_API_ENDPOINT` environment variables are configured
+2. The Idea Generator will automatically use these credentials to connect to the AI service
+
+For production deployments, you can optionally forward user prompts to a backend API:
+
+1. Open `src/services/ideaGeneratorService.ts`
+2. Uncomment the backend API code and modify it to fit your backend implementation:
+```javascript
+// Optionally forward prompt to a backend endpoint
+const backendResponse = await fetch('/api/generate-idea', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ prompt })
+});
+return await backendResponse.json();
 ```
 
 ## Tech Stack

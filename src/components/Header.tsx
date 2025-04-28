@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import PrimaryButton from './PrimaryButton';
 import SecondaryButton from './SecondaryButton';
+import { Sparkles } from 'lucide-react';
 
 const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -56,6 +57,20 @@ const Header = () => {
               )}
             >
               For Investors
+            </Link>
+            <Link 
+              to="/idea-generator"
+              className={cn(
+                "text-sm font-medium transition-colors hover:text-idea-primary flex items-center gap-1.5",
+                isActive("/idea-generator") ? "text-idea-primary" : "text-muted-foreground",
+                "relative"
+              )}
+            >
+              Idea Generator
+              <Sparkles className="h-3.5 w-3.5 text-idea-accent" />
+              <span className="absolute -top-2 -right-8 bg-idea-accent text-white text-[10px] px-1 py-0.5 rounded-full">
+                New!
+              </span>
             </Link>
             <Link 
               to="/dashboard" 
@@ -148,6 +163,22 @@ const Header = () => {
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 For Investors
+              </Link>
+              <Link 
+                to="/idea-generator"
+                className={cn(
+                  "text-sm font-medium transition-colors hover:text-idea-primary px-4 py-2 flex items-center justify-between",
+                  isActive("/idea-generator") ? "text-idea-primary bg-idea-light/50" : "text-muted-foreground"
+                )}
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Idea Generator
+                <div className="flex items-center gap-1">
+                  <Sparkles className="h-3.5 w-3.5 text-idea-accent" />
+                  <span className="bg-idea-accent text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                    New!
+                  </span>
+                </div>
               </Link>
               <Link 
                 to="/dashboard" 
