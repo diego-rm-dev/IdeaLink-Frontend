@@ -11,15 +11,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import PrimaryButton from '@/components/PrimaryButton';
 import SecondaryButton from '@/components/SecondaryButton';
+import InvestmentModal from '@/components/InvestmentModal';
+import PurchaseModal from '@/components/PurchaseModal';
 import { useValidateIdea, IdeaValidationResult } from '@/hooks/useValidateIdea';
 import { AI_CONFIG } from '@/services/aiConfig';
-import { Eye, Calendar, DollarSign, AlertTriangle, Check } from 'lucide-react';
+import { Eye, Calendar, DollarSign, AlertTriangle, Check, Diamond } from 'lucide-react';
 
 const IdeaDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const [idea, setIdea] = useState(mockIdeas.find(i => i.id === id));
   const { validateIdea, isLoading } = useValidateIdea();
   const [validationResult, setValidationResult] = useState<IdeaValidationResult | undefined>(idea?.metrics);
+  const [showInvestmentModal, setShowInvestmentModal] = useState(false);
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   
   // If idea is not found in mock data, redirect to 404
   if (!idea) {
@@ -69,14 +73,14 @@ const IdeaDetailPage = () => {
     day: 'numeric',
   });
   
-  // Handle buy click
-  const handleBuy = () => {
-    alert(`This would initiate the purchase process for idea: ${idea.title}`);
-  };
-  
   // Handle invest click
   const handleInvest = () => {
-    alert(`This would initiate the investment process for idea: ${idea.title}`);
+    setShowInvestmentModal(true);
+  };
+  
+  // Handle buy click
+  const handleBuy = () => {
+    setShowPurchaseModal(true);
   };
   
   // Trigger validation on load
@@ -141,9 +145,20 @@ const IdeaDetailPage = () => {
                 </div>
                 
                 <div className="flex flex-col items-end">
-                  <div className="text-3xl font-bold text-idea-primary mb-2">
+                  <div className="text-3xl font-bold text-idea-primary mb-2 flex items-center">
                     {formattedPrice}
+                    {idea.royalties && (
+                      <span className="ml-2 flex items-center text-amber-500 text-base">
+                        <Diamond size={16} className="mr-1" />
+                        {idea.royalties.percentage}
+                      </span>
+                    )}
                   </div>
+                  {idea.royalties && (
+                    <div className="text-sm text-amber-700 mb-2 bg-amber-50 px-2 py-1 rounded-md">
+                      {idea.royalties.terms}
+                    </div>
+                  )}
                   {idea.status === 'published' && (
                     <div className="flex gap-2">
                       <SecondaryButton onClick={handleInvest}>Invest</SecondaryButton>
@@ -399,6 +414,24 @@ const IdeaDetailPage = () => {
           </div>
         </div>
       </main>
+      
+      {/* Investment Modal */}
+      {idea && (
+        <InvestmentModal
+          idea={idea}
+          isOpen={showInvestmentModal}
+          onClose={() => setShowInvestmentModal(false)}
+        />
+      )}
+      
+      {/* Purchase Modal */}
+      {idea && (
+        <PurchaseModal
+          idea={idea}
+          isOpen={showPurchaseModal}
+          onClose={() => setShowPurchaseModal(false)}
+        />
+      )}
       
       <Footer />
     </div>

@@ -20,6 +20,9 @@ The platform is powered by AI technology that analyzes each idea and provides me
 - Seller dashboard for managing idea listings
 - Buyer/Investor dashboard for tracking opportunities
 - **NEW! AI Idea Generator** for creating unique business concepts
+- **NEW! Royalty & Participation Agreements** enabling creators to earn ongoing revenue
+- **NEW! Multi-role Registration** for Sellers, Buyers, and Investors
+- **NEW! Identity Verification** for enhanced platform security and trust
 
 ## Getting Started
 
@@ -87,6 +90,21 @@ const backendResponse = await fetch('/api/generate-idea', {
 });
 return await backendResponse.json();
 ```
+
+### Payment Integration
+
+The platform is prepared for integration with payment gateways (like MercadoPago):
+
+1. In `src/components/InvestmentModal.tsx` and `src/components/PurchaseModal.tsx`, uncomment the API call sections and customize them for your payment provider.
+2. Configure appropriate API endpoints on your backend to handle these requests.
+
+### Identity Verification
+
+User identity verification is prepared for integration with backend verification services:
+
+1. During registration, users provide their real identity information
+2. In `src/pages/RegisterPage.tsx`, uncomment and modify the API call to connect with your backend verification service.
+3. All identity data should be treated as highly sensitive and properly encrypted.
 
 ## Tech Stack
 

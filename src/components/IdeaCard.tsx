@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Idea } from '@/data/mockData';
 import { Badge } from '@/components/ui/badge';
-import { Eye } from 'lucide-react';
+import { Eye, Diamond } from 'lucide-react';
 
 interface IdeaCardProps {
   idea: Idea;
@@ -63,6 +63,15 @@ const IdeaCard: React.FC<IdeaCardProps> = ({ idea, showMetrics = false }) => {
           <span className="text-idea-accent font-medium">{idea.category}</span>
           <span className="text-muted-foreground">•</span>
           <span className="text-muted-foreground">{formattedDate}</span>
+          {idea.royalties && (
+            <>
+              <span className="text-muted-foreground">•</span>
+              <span className="flex items-center text-amber-500">
+                <Diamond size={14} className="mr-1" />
+                {idea.royalties.percentage}
+              </span>
+            </>
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent>

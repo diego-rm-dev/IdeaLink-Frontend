@@ -11,6 +11,7 @@ import SecondaryButton from '@/components/SecondaryButton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { AI_CONFIG } from '@/services/aiConfig';
 import { useValidateIdea } from '@/hooks/useValidateIdea';
 
@@ -37,6 +38,9 @@ const PostIdeaPage = () => {
     targetMarket: '',
     executionCost: '',
     potentialRisks: '',
+    offerRoyalties: false,
+    royaltyPercentage: '',
+    royaltyTerms: '',
   });
   const [files, setFiles] = useState<FileList | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -52,6 +56,10 @@ const PostIdeaPage = () => {
 
   const handleSelectChange = (name: string, value: string) => {
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleCheckboxChange = (name: string, checked: boolean) => {
+    setFormData(prev => ({ ...prev, [name]: checked }));
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -73,6 +81,17 @@ const PostIdeaPage = () => {
     if (formData.executionCost && isNaN(parseFloat(formData.executionCost))) {
       setError('Execution cost must be a number');
       return false;
+    }
+
+    if (formData.offerRoyalties) {
+      if (!formData.royaltyPercentage) {
+        setError('Please specify the royalty percentage');
+        return false;
+      }
+      if (!formData.royaltyTerms) {
+        setError('Please specify the royalty terms');
+        return false;
+      }
     }
     
     return true;
@@ -107,7 +126,7 @@ const PostIdeaPage = () => {
       
       // Add all text fields
       Object.entries(formData).forEach(([key, value]) => {
-        formDataObj.append(key, value);
+        formDataObj.append(key, String(value));
       });
       
       // Add files if present
@@ -307,6 +326,48 @@ const PostIdeaPage = () => {
                       className="min-h-[80px]"
                     />
                   </div>
+                </div>
+
+                {/* New Royalties Section */}
+                <div className="space-y-4 border border-border rounded-lg p-4 bg-gray-50">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="offerRoyalties"
+                      checked={formData.offerRoyalties}
+                      onCheckedChange={(checked) => handleCheckboxChange('offerRoyalties', checked === true)}
+                    />
+                    <Label htmlFor="offerRoyalties" className="font-medium">
+                      Would you like to offer a royalty or participation deal to attract buyers/investors?
+                    </Label>
+                  </div>
+                  
+                  {formData.offerRoyalties && (
+                    <div className="pl-6 space-y-4 mt-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="royaltyPercentage">Percentage Offered</Label>
+                        <Input 
+                          id="royaltyPercentage"
+                          name="royaltyPercentage"
+                          type="text"
+                          placeholder="e.g., 5%, 10%"
+                          value={formData.royaltyPercentage}
+                          onChange={handleInputChange}
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="royaltyTerms">Basic Conditions</Label>
+                        <Textarea 
+                          id="royaltyTerms"
+                          name="royaltyTerms"
+                          placeholder="e.g., 5% of net profits for 3 years"
+                          value={formData.royaltyTerms}
+                          onChange={handleInputChange}
+                          className="min-h-[80px]"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="space-y-2">
