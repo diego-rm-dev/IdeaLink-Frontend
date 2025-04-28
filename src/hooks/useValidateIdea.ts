@@ -20,7 +20,7 @@ export const mockValidateIdea = (ideaData: any): IdeaValidationResult => {
   // For demo purposes, we'll generate consistent but semi-random values
   // based on the idea's title length
   const titleLength = ideaData.title?.length || 10;
-  const descLength = ideaData.description?.length || 50;
+  const descLength = ideaData.description?.length || ideaData.shortDescription?.length || 50;
   
   const successProb = Math.min(0.95, Math.max(0.35, (titleLength * descLength % 65) / 100 + 0.4));
   

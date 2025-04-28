@@ -8,6 +8,10 @@ import Index from "./pages/Index";
 import IdeasPage from "./pages/IdeasPage";
 import IdeaDetailPage from "./pages/IdeaDetailPage";
 import DashboardPage from "./pages/DashboardPage";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
+import InvestorsPage from "./pages/InvestorsPage";
+import PostIdeaPage from "./pages/PostIdeaPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -23,6 +27,10 @@ const App = () => (
           <Route path="/ideas" element={<IdeasPage />} />
           <Route path="/idea/:id" element={<IdeaDetailPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/investors" element={<InvestorsPage />} />
+          <Route path="/post-idea" element={<PostIdeaPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

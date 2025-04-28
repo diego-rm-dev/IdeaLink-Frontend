@@ -49,6 +49,15 @@ const Header = () => {
               Browse Ideas
             </Link>
             <Link 
+              to="/investors" 
+              className={cn(
+                "text-sm font-medium transition-colors hover:text-idea-primary",
+                isActive("/investors") ? "text-idea-primary" : "text-muted-foreground"
+              )}
+            >
+              For Investors
+            </Link>
+            <Link 
               to="/dashboard" 
               className={cn(
                 "text-sm font-medium transition-colors hover:text-idea-primary",
@@ -61,8 +70,12 @@ const Header = () => {
           
           {/* CTA Buttons */}
           <div className="hidden md:flex items-center space-x-4">
-            <SecondaryButton size="sm">Sign In</SecondaryButton>
-            <PrimaryButton size="sm">Post Your Idea</PrimaryButton>
+            <Link to="/login">
+              <SecondaryButton size="sm">Sign In</SecondaryButton>
+            </Link>
+            <Link to="/post-idea">
+              <PrimaryButton size="sm">Post Your Idea</PrimaryButton>
+            </Link>
           </div>
           
           {/* Mobile Menu Button */}
@@ -127,6 +140,16 @@ const Header = () => {
                 Browse Ideas
               </Link>
               <Link 
+                to="/investors" 
+                className={cn(
+                  "text-sm font-medium transition-colors hover:text-idea-primary px-4 py-2",
+                  isActive("/investors") ? "text-idea-primary bg-idea-light/50" : "text-muted-foreground"
+                )}
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                For Investors
+              </Link>
+              <Link 
                 to="/dashboard" 
                 className={cn(
                   "text-sm font-medium transition-colors hover:text-idea-primary px-4 py-2",
@@ -137,8 +160,12 @@ const Header = () => {
                 Dashboard
               </Link>
               <div className="flex flex-col gap-2 px-4 pt-2">
-                <SecondaryButton className="w-full">Sign In</SecondaryButton>
-                <PrimaryButton className="w-full">Post Your Idea</PrimaryButton>
+                <Link to="/login" className="w-full" onClick={() => setIsMobileMenuOpen(false)}>
+                  <SecondaryButton className="w-full">Sign In</SecondaryButton>
+                </Link>
+                <Link to="/post-idea" className="w-full" onClick={() => setIsMobileMenuOpen(false)}>
+                  <PrimaryButton className="w-full">Post Your Idea</PrimaryButton>
+                </Link>
               </div>
             </nav>
           </div>
