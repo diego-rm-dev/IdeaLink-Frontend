@@ -1,73 +1,79 @@
-# Welcome to your Lovable project
 
-## Project info
+# IdeaLink: AI-Powered Idea Marketplace
 
-**URL**: https://lovable.dev/projects/cb7ba054-b134-4974-af7a-4957a171dfe5
+IdeaLink is a platform where entrepreneurs can sell their business ideas, inventors can find buyers for their innovations, and investors can discover promising opportunities - all validated by AI insights.
 
-## How can I edit this code?
+## Overview
 
-There are several ways of editing your application.
+**IdeaLink** connects:
+- **Creators** who have ideas but may lack the resources to execute
+- **Buyers** who are looking for validated ideas to implement
+- **Investors** who want to fund promising concepts with validated potential
 
-**Use Lovable**
+The platform is powered by AI technology that analyzes each idea and provides metrics on success probability, risk level, and expected ROI.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/cb7ba054-b134-4974-af7a-4957a171dfe5) and start prompting.
+## Features
 
-Changes made via Lovable will be committed automatically to this repo.
+- Browse and search through a marketplace of ideas
+- View AI-generated analytics for each idea
+- Buy ideas outright or invest in their development
+- Seller dashboard for managing idea listings
+- Buyer/Investor dashboard for tracking opportunities
 
-**Use your preferred IDE**
+## Getting Started
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Installation
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+1. Clone the repository:
+```
+git clone <repository-url>
+```
 
-Follow these steps:
+2. Install dependencies:
+```
+npm install
+```
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+3. Start the development server:
+```
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Configuration
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+The application uses environment variables for AI service configuration:
 
-**Use GitHub Codespaces**
+1. Create a `.env` file in the root directory with the following variables:
+```
+VITE_IA_API_KEY=your_api_key_here
+VITE_IA_API_ENDPOINT=https://api.yourservice.com/endpoint
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+2. If you don't have API credentials yet, the app will use mock data for demo purposes.
 
-## What technologies are used for this project?
+## AI Configuration
 
-This project is built with:
+The AI configuration is centralized in `src/services/aiConfig.ts`. To switch AI providers or versions in the future:
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+1. Open `src/services/aiConfig.ts`
+2. Update the `AI_CONFIG` object:
+```typescript
+export const AI_CONFIG = {
+  provider: 'YourNewProvider',  // Change the AI provider name
+  version: '2.0',               // Update the version
+  apiKey: import.meta.env.VITE_IA_API_KEY || '',
+  endpoint: import.meta.env.VITE_IA_API_ENDPOINT || ''
+};
+```
 
-## How can I deploy this project?
+## Tech Stack
 
-Simply open [Lovable](https://lovable.dev/projects/cb7ba054-b134-4974-af7a-4957a171dfe5) and click on Share -> Publish.
+- **Frontend**: React with TypeScript
+- **Routing**: React Router
+- **Styling**: Tailwind CSS
+- **UI Components**: shadcn/ui
+- **State Management**: TanStack Query (React Query)
 
-## Can I connect a custom domain to my Lovable project?
+## License
 
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+This project is licensed under the MIT License - see the LICENSE file for details.
