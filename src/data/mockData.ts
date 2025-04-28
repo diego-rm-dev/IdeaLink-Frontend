@@ -16,6 +16,9 @@ export interface User {
 // Idea status
 export type IdeaStatus = 'draft' | 'published' | 'sold' | 'funded';
 
+// Import the validation result interface
+import { IdeaValidationResult } from '../hooks/useValidateIdea';
+
 // Idea interface
 export interface Idea {
   id: string;
@@ -31,11 +34,7 @@ export interface Idea {
   };
   createdAt: string;
   views: number;
-  metrics?: {
-    successProbability: number;
-    riskLevel: 'Low' | 'Medium' | 'High';
-    expectedROI: string;
-  };
+  metrics?: IdeaValidationResult;
 }
 
 // Testimonial interface
@@ -93,6 +92,9 @@ export const mockIdeas: Idea[] = [
       successProbability: 0.82,
       riskLevel: 'Medium',
       expectedROI: '35%',
+      innovationScore: 7.5,
+      marketPotential: 8.2,
+      executionComplexity: 6.3
     },
   },
   {
@@ -113,6 +115,9 @@ export const mockIdeas: Idea[] = [
       successProbability: 0.75,
       riskLevel: 'Medium',
       expectedROI: '28%',
+      innovationScore: 6.8,
+      marketPotential: 7.5,
+      executionComplexity: 5.4
     },
   },
   {
@@ -133,6 +138,9 @@ export const mockIdeas: Idea[] = [
       successProbability: 0.91,
       riskLevel: 'Low',
       expectedROI: '42%',
+      innovationScore: 8.7,
+      marketPotential: 9.1,
+      executionComplexity: 4.2
     },
   },
   {
@@ -153,6 +161,9 @@ export const mockIdeas: Idea[] = [
       successProbability: 0.88,
       riskLevel: 'Low',
       expectedROI: '40%',
+      innovationScore: 8.2,
+      marketPotential: 8.8,
+      executionComplexity: 3.8
     },
   },
   {
@@ -173,6 +184,9 @@ export const mockIdeas: Idea[] = [
       successProbability: 0.79,
       riskLevel: 'Medium',
       expectedROI: '33%',
+      innovationScore: 7.4,
+      marketPotential: 8.0,
+      executionComplexity: 6.1
     },
   },
 ];

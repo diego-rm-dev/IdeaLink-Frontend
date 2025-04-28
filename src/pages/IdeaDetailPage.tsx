@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import PrimaryButton from '@/components/PrimaryButton';
 import SecondaryButton from '@/components/SecondaryButton';
-import { useValidateIdea } from '@/hooks/useValidateIdea';
+import { useValidateIdea, IdeaValidationResult } from '@/hooks/useValidateIdea';
 import { AI_CONFIG } from '@/services/aiConfig';
 import { Eye, Calendar, DollarSign, AlertTriangle, Check } from 'lucide-react';
 
@@ -19,7 +19,7 @@ const IdeaDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const [idea, setIdea] = useState(mockIdeas.find(i => i.id === id));
   const { validateIdea, isLoading } = useValidateIdea();
-  const [validationResult, setValidationResult] = useState(idea?.metrics);
+  const [validationResult, setValidationResult] = useState<IdeaValidationResult | undefined>(idea?.metrics);
   
   // If idea is not found in mock data, redirect to 404
   if (!idea) {
@@ -267,7 +267,7 @@ const IdeaDetailPage = () => {
                 </div>
                 
                 {/* Additional metrics */}
-                {validationResult && 'innovationScore' in validationResult && (
+                {validationResult && (
                   <div className="border border-border rounded-lg p-4">
                     <h3 className="font-medium mb-4">Detailed Metrics</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -277,7 +277,7 @@ const IdeaDetailPage = () => {
                           <div className="flex-1 h-2 bg-muted rounded-full mr-2">
                             <div 
                               className="h-full bg-purple-500 rounded-full" 
-                              style={{ width: `${(validationResult.innovationScore || 0) * 10}%` }}
+                              style={{ width: `${validationResult.innovationScore * 10}%` }}
                             ></div>
                           </div>
                           <span className="font-bold">{validationResult.innovationScore}/10</span>
@@ -290,7 +290,7 @@ const IdeaDetailPage = () => {
                           <div className="flex-1 h-2 bg-muted rounded-full mr-2">
                             <div 
                               className="h-full bg-blue-500 rounded-full" 
-                              style={{ width: `${(validationResult.marketPotential || 0) * 10}%` }}
+                              style={{ width: `${validationResult.marketPotential * 10}%` }}
                             ></div>
                           </div>
                           <span className="font-bold">{validationResult.marketPotential}/10</span>
@@ -303,7 +303,7 @@ const IdeaDetailPage = () => {
                           <div className="flex-1 h-2 bg-muted rounded-full mr-2">
                             <div 
                               className="h-full bg-orange-500 rounded-full" 
-                              style={{ width: `${(validationResult.executionComplexity || 0) * 10}%` }}
+                              style={{ width: `${validationResult.executionComplexity * 10}%` }}
                             ></div>
                           </div>
                           <span className="font-bold">{validationResult.executionComplexity}/10</span>

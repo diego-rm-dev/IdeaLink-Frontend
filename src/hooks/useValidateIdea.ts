@@ -7,9 +7,9 @@ export interface IdeaValidationResult {
   successProbability: number;
   riskLevel: 'Low' | 'Medium' | 'High';
   expectedROI: string;
-  innovationScore?: number;
-  marketPotential?: number;
-  executionComplexity?: number;
+  innovationScore: number;
+  marketPotential: number;
+  executionComplexity: number;
 }
 
 // Mock idea validation (in a real app this would call an API)
