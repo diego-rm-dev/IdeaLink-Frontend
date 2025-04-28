@@ -75,6 +75,43 @@ const mockSellers: Seller[] = [
   }
 ];
 
+// Mock testimonials data
+export interface Testimonial {
+  id: string;
+  name: string;
+  role: string;
+  company: string;
+  avatar: string;
+  message: string;
+}
+
+export const mockTestimonials: Testimonial[] = [
+  {
+    id: "t1",
+    name: "Emily Chen",
+    role: "Founder",
+    company: "GreenTech Solutions",
+    avatar: "https://randomuser.me/api/portraits/women/12.jpg",
+    message: "IdeaLink helped me find the perfect buyer for my sustainability app concept. The AI validation gave buyers confidence, and I sold my idea for 30% more than I initially expected."
+  },
+  {
+    id: "t2",
+    name: "Marcus Jones",
+    role: "Investor",
+    company: "Venture Capital Partners",
+    avatar: "https://randomuser.me/api/portraits/men/32.jpg",
+    message: "As an investor, the detailed AI analysis helps me quickly identify promising opportunities. I've funded three ideas through IdeaLink, and two are already moving to production."
+  },
+  {
+    id: "t3",
+    name: "Sophia Rodriguez",
+    role: "Entrepreneur",
+    company: "Streamline Tech",
+    avatar: "https://randomuser.me/api/portraits/women/45.jpg",
+    message: "I was skeptical at first, but the royalty option allowed me to sell my idea while still benefiting from its success. The buyer implemented my concept exactly as I envisioned."
+  }
+];
+
 // Mock ideas
 export const mockIdeas: Idea[] = [
   {
@@ -267,4 +304,23 @@ export const mockInvestorAnalyses: Record<string, InvestorAnalysis> = {
       scalability: 8.4
     }
   }
+};
+
+// Current user for dashboard
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: 'seller' | 'buyer' | 'investor' | 'admin';
+  avatar: string;
+  joinedDate: string;
+}
+
+export const currentUser: User = {
+  id: "u1",
+  name: "Alex Johnson",
+  email: "alex.johnson@example.com",
+  role: "seller",
+  avatar: "https://randomuser.me/api/portraits/men/1.jpg",
+  joinedDate: "2024-12-15"
 };

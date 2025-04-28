@@ -11,6 +11,7 @@ export interface SecondaryButtonProps {
   disabled?: boolean;
   variant?: "outline" | "default" | "destructive" | "secondary" | "ghost" | "link" | null;
   isLoading?: boolean;
+  size?: "default" | "sm" | "lg" | "icon";
 }
 
 const SecondaryButton: React.FC<SecondaryButtonProps> = ({ 
@@ -20,7 +21,8 @@ const SecondaryButton: React.FC<SecondaryButtonProps> = ({
   className = '', 
   disabled = false,
   variant = 'outline',
-  isLoading = false
+  isLoading = false,
+  size = 'default'
 }) => {
   return (
     <Button
@@ -29,6 +31,7 @@ const SecondaryButton: React.FC<SecondaryButtonProps> = ({
       className={className}
       disabled={disabled || isLoading}
       variant={variant}
+      size={size}
     >
       {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
       {children}
