@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { mockIdeas } from '@/data/mockData';
+import { mockIdeas, Idea } from '@/data/mockData';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,7 +23,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { toast } from '@/hooks/use-toast';
 
 // Extend the Idea interface to include blockchain information
-interface ExtendedIdea extends typeof mockIdeas[0] {
+interface ExtendedIdea extends Idea {
   blockchain?: {
     isTokenized: boolean;
     tokenSymbol?: string;
