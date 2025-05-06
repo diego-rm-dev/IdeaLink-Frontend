@@ -1,119 +1,114 @@
 
-# IdeaLink: AI-Powered Idea Marketplace
+# IdeaLink
 
-IdeaLink is a platform where entrepreneurs can sell their business ideas, inventors can find buyers for their innovations, and investors can discover promising opportunities - all validated by AI insights.
-
-## Overview
-
-**IdeaLink** connects:
-- **Creators** who have ideas but may lack the resources to execute
-- **Buyers** who are looking for validated ideas to implement
-- **Investors** who want to fund promising concepts with validated potential
-
-The platform is powered by AI technology that analyzes each idea and provides metrics on success probability, risk level, and expected ROI.
+IdeaLink is a platform where innovators can post, sell, and find investment for their business ideas. The platform includes AI-powered idea validation and blockchain integration for secure transactions.
 
 ## Features
 
-- Browse and search through a marketplace of ideas
-- View AI-generated analytics for each idea
-- Buy ideas outright or invest in their development
-- Seller dashboard for managing idea listings
-- Buyer/Investor dashboard for tracking opportunities
-- **NEW! AI Idea Generator** for creating unique business concepts
-- **NEW! Royalty & Participation Agreements** enabling creators to earn ongoing revenue
-- **NEW! Multi-role Registration** for Sellers, Buyers, and Investors
-- **NEW! Identity Verification** for enhanced platform security and trust
+- Browse and publish innovative business ideas
+- AI-powered idea validation and market analysis
+- Blockchain integration for secure ownership and transactions
+- Messaging system for communication between sellers and buyers
+- Anonymous public identity system with secure private verification
+- Royalty system for ongoing participation in idea success
+- Idea tokenization for fractional ownership
 
 ## Getting Started
 
+### Prerequisites
+
+- Node.js and npm installed
+- A Web3 wallet like MetaMask for blockchain features
+
 ### Installation
 
-1. Clone the repository:
-```
-git clone <repository-url>
-```
-
+1. Clone the repository
 2. Install dependencies:
-```
+
+```bash
 npm install
 ```
 
 3. Start the development server:
-```
+
+```bash
 npm run dev
 ```
 
-### Configuration
+## Environment Variables
 
-The application uses environment variables for AI service configuration:
+Create a `.env` file in the root directory with the following variables:
 
-1. Create a `.env` file in the root directory with the following variables:
 ```
-VITE_IA_API_KEY=your_api_key_here
-VITE_IA_API_ENDPOINT=https://api.yourservice.com/endpoint
-```
+# AI Configuration
+IA_API_KEY=your_ai_api_key
+IA_API_ENDPOINT=your_ai_api_endpoint
 
-2. If you don't have API credentials yet, the app will use mock data for demo purposes.
-
-## AI Configuration
-
-The AI configuration is centralized in `src/services/aiConfig.ts`. To switch AI providers or versions in the future:
-
-1. Open `src/services/aiConfig.ts`
-2. Update the `AI_CONFIG` object:
-```typescript
-export const AI_CONFIG = {
-  provider: 'YourNewProvider',  // Change the AI provider name
-  version: '2.0',               // Update the version
-  apiKey: import.meta.env.VITE_IA_API_KEY || '',
-  endpoint: import.meta.env.VITE_IA_API_ENDPOINT || ''
-};
+# Blockchain Configuration
+NEXT_PUBLIC_CHAIN_RPC_URL=your_blockchain_rpc_url
 ```
 
-### Idea Generator Configuration
+## Blockchain Integration
 
-The Idea Generator feature uses the same AI configuration as the rest of the application. To set it up:
+IdeaLink uses Web3.js to connect to blockchain networks. The integration provides:
 
-1. Ensure your `VITE_IA_API_KEY` and `VITE_IA_API_ENDPOINT` environment variables are configured
-2. The Idea Generator will automatically use these credentials to connect to the AI service
+- Wallet connection for buyers and sellers
+- Idea tokenization for fractional ownership
+- Token sales (fixed price or auction)
+- Smart contract integration for royalty distribution
 
-For production deployments, you can optionally forward user prompts to a backend API:
+### Setting Up Web3 Connection
 
-1. Open `src/services/ideaGeneratorService.ts`
-2. Uncomment the backend API code and modify it to fit your backend implementation:
-```javascript
-// Optionally forward prompt to a backend endpoint
-const backendResponse = await fetch('/api/generate-idea', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ prompt })
-});
-return await backendResponse.json();
-```
+1. Install MetaMask or another Web3 wallet browser extension
+2. Connect your wallet using the "Connect Wallet" button in the application
+3. Ensure you're connected to the correct network (Ethereum Mainnet, Polygon, etc.)
 
-### Payment Integration
+### Environment Variables for Blockchain
 
-The platform is prepared for integration with payment gateways (like MercadoPago):
+- `NEXT_PUBLIC_CHAIN_RPC_URL`: RPC URL for the blockchain provider (e.g., Infura, Alchemy)
 
-1. In `src/components/InvestmentModal.tsx` and `src/components/PurchaseModal.tsx`, uncomment the API call sections and customize them for your payment provider.
-2. Configure appropriate API endpoints on your backend to handle these requests.
+## WebSocket Service
 
-### Identity Verification
+The messaging system uses WebSockets for real-time communication between users.
 
-User identity verification is prepared for integration with backend verification services:
+### WebSocket Configuration
 
-1. During registration, users provide their real identity information
-2. In `src/pages/RegisterPage.tsx`, uncomment and modify the API call to connect with your backend verification service.
-3. All identity data should be treated as highly sensitive and properly encrypted.
+Currently, the application uses a mock WebSocket service. To connect to a real WebSocket server:
 
-## Tech Stack
+1. Update the `webSocketService.ts` file
+2. Replace mock functions with real WebSocket connections
+3. Configure the WebSocket server endpoint in your environment
 
-- **Frontend**: React with TypeScript
-- **Routing**: React Router
-- **Styling**: Tailwind CSS
-- **UI Components**: shadcn/ui
-- **State Management**: TanStack Query (React Query)
+## Identity Handling
+
+IdeaLink uses a two-tier identity system:
+
+- **Public Identity**: Anonymous usernames visible to all users
+- **Private Identity**: Government ID verification and personal details stored securely
+
+### Identity Storage
+
+Sensitive user information should be:
+- Encrypted at rest
+- Transmitted securely
+- Stored in compliance with relevant privacy regulations
+
+## Development Notes
+
+### API Integration
+
+- Add API endpoints in the `.env` file
+- The AI services use the centralized `AI_CONFIG` from `src/services/aiConfig.js`
+- Blockchain interactions are handled through `src/services/walletService.js`
+
+### Adding Smart Contract Functionality
+
+To implement actual smart contract functionality:
+
+1. Replace placeholder ABIs in `walletService.ts`
+2. Implement actual contract deployment in `PostIdeaPage.tsx`
+3. Connect transaction functions in `IdeaDetailPage.tsx`
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+[MIT](LICENSE)

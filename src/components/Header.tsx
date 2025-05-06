@@ -5,7 +5,15 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import PrimaryButton from './PrimaryButton';
 import SecondaryButton from './SecondaryButton';
-import { Sparkles } from 'lucide-react';
+import WalletButton from './WalletButton';
+import { Sparkles, MessageCircle, User } from 'lucide-react';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
 
 const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -73,21 +81,55 @@ const Header = () => {
               </span>
             </Link>
             <Link 
-              to="/dashboard" 
+              to="/messages" 
               className={cn(
-                "text-sm font-medium transition-colors hover:text-idea-primary",
-                isActive("/dashboard") ? "text-idea-primary" : "text-muted-foreground"
+                "text-sm font-medium transition-colors hover:text-idea-primary flex items-center gap-1.5",
+                isActive("/messages") ? "text-idea-primary" : "text-muted-foreground"
               )}
             >
-              Dashboard
+              Messages
+              <MessageCircle className="h-3.5 w-3.5" />
             </Link>
           </nav>
           
           {/* CTA Buttons */}
           <div className="hidden md:flex items-center space-x-4">
-            <Link to="/login">
-              <SecondaryButton size="sm">Sign In</SecondaryButton>
-            </Link>
+            {/* Wallet Connection */}
+            <WalletButton />
+            
+            {/* User Menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="flex items-center gap-1.5">
+                  <User className="h-4 w-4" />
+                  <span>Account</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <Link to="/dashboard">
+                  <DropdownMenuItem className="cursor-pointer">
+                    Dashboard
+                  </DropdownMenuItem>
+                </Link>
+                <Link to="/messages">
+                  <DropdownMenuItem className="cursor-pointer">
+                    Messages
+                  </DropdownMenuItem>
+                </Link>
+                <DropdownMenuSeparator />
+                <Link to="/login">
+                  <DropdownMenuItem className="cursor-pointer">
+                    Sign In
+                  </DropdownMenuItem>
+                </Link>
+                <Link to="/register">
+                  <DropdownMenuItem className="cursor-pointer">
+                    Register
+                  </DropdownMenuItem>
+                </Link>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
             <Link to="/post-idea">
               <PrimaryButton size="sm">Post Your Idea</PrimaryButton>
             </Link>
@@ -181,6 +223,17 @@ const Header = () => {
                 </div>
               </Link>
               <Link 
+                to="/messages" 
+                className={cn(
+                  "text-sm font-medium transition-colors hover:text-idea-primary px-4 py-2 flex items-center justify-between",
+                  isActive("/messages") ? "text-idea-primary bg-idea-light/50" : "text-muted-foreground"
+                )}
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Messages
+                <MessageCircle className="h-3.5 w-3.5" />
+              </Link>
+              <Link 
                 to="/dashboard" 
                 className={cn(
                   "text-sm font-medium transition-colors hover:text-idea-primary px-4 py-2",
@@ -190,6 +243,9 @@ const Header = () => {
               >
                 Dashboard
               </Link>
+              <div className="px-4 py-2">
+                <WalletButton />
+              </div>
               <div className="flex flex-col gap-2 px-4 pt-2">
                 <Link to="/login" className="w-full" onClick={() => setIsMobileMenuOpen(false)}>
                   <SecondaryButton className="w-full">Sign In</SecondaryButton>

@@ -12,8 +12,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Switch } from '@/components/ui/switch';
 import { AI_CONFIG } from '@/services/aiConfig';
 import { useValidateIdea } from '@/hooks/useValidateIdea';
+import { useWallet } from '@/hooks/useWallet';
+import { Badge } from '@/components/ui/badge';
+import { Coins } from 'lucide-react';
 
 const categories = [
   "Technology",
@@ -41,6 +46,10 @@ const PostIdeaPage = () => {
     offerRoyalties: false,
     royaltyPercentage: '',
     royaltyTerms: '',
+    tokenizeIdea: false,
+    tokenCount: '',
+    tokenSymbol: '',
+    tokenSaleType: 'fixed'
   });
   const [files, setFiles] = useState<FileList | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -48,6 +57,7 @@ const PostIdeaPage = () => {
   const [showPreview, setShowPreview] = useState(false);
   const navigate = useNavigate();
   const { validateIdea, isLoading: isValidating, result: validationResult } = useValidateIdea();
+  const { isConnected, connectWallet, walletState } = useWallet();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -59,6 +69,10 @@ const PostIdeaPage = () => {
   };
 
   const handleCheckboxChange = (name: string, checked: boolean) => {
+    setFormData(prev => ({ ...prev, [name]: checked }));
+  };
+
+  const handleSwitchChange = (name: string, checked: boolean) => {
     setFormData(prev => ({ ...prev, [name]: checked }));
   };
 
@@ -93,6 +107,21 @@ const PostIdeaPage = () => {
         return false;
       }
     }
+
+    if (formData.tokenizeIdea) {
+      if (!formData.tokenCount || isNaN(parseInt(formData.tokenCount))) {
+        setError('Please specify a valid token count');
+        return false;
+      }
+      if (!formData.tokenSymbol) {
+        setError('Please specify a token symbol');
+        return false;
+      }
+      if (!isConnected) {
+        setError('You must connect your wallet to tokenize your idea');
+        return false;
+      }
+    }
     
     return true;
   };
@@ -106,6 +135,10 @@ const PostIdeaPage = () => {
     } catch (err) {
       setError('Failed to generate preview');
     }
+  };
+
+  const handleConnectWallet = async () => {
+    await connectWallet();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -134,6 +167,13 @@ const PostIdeaPage = () => {
         for (let i = 0; i < files.length; i++) {
           formDataObj.append('files', files[i]);
         }
+      }
+      
+      // If tokenizing, we would connect to the blockchain here
+      if (formData.tokenizeIdea) {
+        // This would be handled by a smart contract call
+        // const contract = walletService.getContractInstance();
+        // await contract.createIdea(formData.tokenSymbol, parseInt(formData.tokenCount));
       }
       
       const response = await fetch('/api/submit-idea', {
@@ -328,7 +368,7 @@ const PostIdeaPage = () => {
                   </div>
                 </div>
 
-                {/* New Royalties Section */}
+                {/* Royalties Section */}
                 <div className="space-y-4 border border-border rounded-lg p-4 bg-gray-50">
                   <div className="flex items-center space-x-2">
                     <Checkbox 
@@ -365,6 +405,109 @@ const PostIdeaPage = () => {
                           onChange={handleInputChange}
                           className="min-h-[80px]"
                         />
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Tokenize Idea Section */}
+                <div className="space-y-4 border border-border rounded-lg p-4 bg-blue-50/50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Coins className="h-5 w-5 text-blue-600" />
+                      <Label htmlFor="tokenizeIdea" className="font-medium">
+                        Tokenize this idea on-chain
+                      </Label>
+                    </div>
+                    <Switch
+                      id="tokenizeIdea"
+                      checked={formData.tokenizeIdea}
+                      onCheckedChange={(checked) => handleSwitchChange('tokenizeIdea', checked)}
+                    />
+                  </div>
+                  
+                  {formData.tokenizeIdea && (
+                    <div className="space-y-4 mt-2">
+                      {!isConnected ? (
+                        <div className="bg-blue-100 p-4 rounded-md">
+                          <p className="text-sm text-blue-800 mb-2">
+                            You must connect your wallet to tokenize your idea.
+                          </p>
+                          <PrimaryButton
+                            type="button"
+                            onClick={handleConnectWallet}
+                            variant="secondary"
+                            size="sm"
+                          >
+                            Connect Wallet
+                          </PrimaryButton>
+                        </div>
+                      ) : (
+                        <div className="bg-blue-100 p-3 rounded-md">
+                          <div className="flex items-center">
+                            <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
+                              Wallet Connected: {walletState.address ? `${walletState.address.substring(0, 6)}...${walletState.address.substring(walletState.address.length - 4)}` : ''}
+                            </Badge>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="tokenCount">Number of Tokens to Mint</Label>
+                          <Input 
+                            id="tokenCount"
+                            name="tokenCount"
+                            type="text"
+                            placeholder="e.g., 1000"
+                            value={formData.tokenCount}
+                            onChange={handleInputChange}
+                            disabled={!isConnected}
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="tokenSymbol">Token Symbol</Label>
+                          <Input 
+                            id="tokenSymbol"
+                            name="tokenSymbol"
+                            type="text"
+                            placeholder="e.g., IDEA"
+                            value={formData.tokenSymbol}
+                            onChange={handleInputChange}
+                            maxLength={8}
+                            disabled={!isConnected}
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label>Token Sale Option</Label>
+                        <RadioGroup
+                          value={formData.tokenSaleType}
+                          onValueChange={(value) => handleSelectChange('tokenSaleType', value)}
+                          className="flex flex-col space-y-2"
+                          disabled={!isConnected}
+                        >
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="fixed" id="fixed" />
+                            <Label htmlFor="fixed">Fixed Price</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="auction" id="auction" />
+                            <Label htmlFor="auction">Auction</Label>
+                          </div>
+                        </RadioGroup>
+                      </div>
+                      
+                      <div className="text-xs text-blue-600 bg-blue-50 p-3 rounded-md">
+                        <p className="font-medium mb-1">What happens when you tokenize an idea?</p>
+                        <ul className="list-disc pl-4 space-y-0.5">
+                          <li>Your idea will be registered on the blockchain with a unique identifier</li>
+                          <li>Investors can purchase tokens representing partial ownership</li>
+                          <li>Smart contracts will manage royalty distributions automatically</li>
+                          <li>The provenance and ownership history will be transparent and verifiable</li>
+                        </ul>
                       </div>
                     </div>
                   )}

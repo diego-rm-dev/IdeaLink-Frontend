@@ -13,6 +13,7 @@ import RegisterPage from "./pages/RegisterPage";
 import InvestorsPage from "./pages/InvestorsPage";
 import PostIdeaPage from "./pages/PostIdeaPage";
 import IdeaGeneratorPage from "./pages/IdeaGeneratorPage";
+import MessagesPage from "./pages/MessagesPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +34,7 @@ const App = () => (
           <Route path="/investors" element={<InvestorsPage />} />
           <Route path="/post-idea" element={<PostIdeaPage />} />
           <Route path="/idea-generator" element={<IdeaGeneratorPage />} />
+          <Route path="/messages" element={<MessagesPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
