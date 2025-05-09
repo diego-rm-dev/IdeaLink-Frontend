@@ -1,8 +1,10 @@
-
 import { useState } from 'react';
 import { AI_CONFIG, isApiConfigured } from '../services/aiConfig';
+import { evaluateIdeaDetailsWithAI, EvaluationDetailsResult } from '../services/ideaEvaluator';
 
-// Idea validation response interface
+// Caché en memoria para resultados de validación
+const validationCache = new Map<string, EvaluationDetailsResult>();
+
 export interface IdeaValidationResult {
   successProbability: number;
   riskLevel: 'Low' | 'Medium' | 'High';
@@ -12,67 +14,55 @@ export interface IdeaValidationResult {
   executionComplexity: number;
 }
 
-// Mock idea validation (in a real app this would call an API)
-export const mockValidateIdea = (ideaData: any): IdeaValidationResult => {
-  // This is a mock function that would normally make an API call
-  // using AI_CONFIG settings to the selected AI provider
-  
-  // For demo purposes, we'll generate consistent but semi-random values
-  // based on the idea's title length
-  const titleLength = ideaData.title?.length || 10;
-  const descLength = ideaData.description?.length || ideaData.shortDescription?.length || 50;
-  
-  const successProb = Math.min(0.95, Math.max(0.35, (titleLength * descLength % 65) / 100 + 0.4));
-  
-  let riskLevel: 'Low' | 'Medium' | 'High';
-  if (successProb > 0.75) riskLevel = 'Low';
-  else if (successProb > 0.5) riskLevel = 'Medium';
-  else riskLevel = 'High';
-  
-  const roi = Math.floor(successProb * 100) + '%';
-  
-  return {
-    successProbability: parseFloat(successProb.toFixed(2)),
-    riskLevel,
-    expectedROI: roi,
-    innovationScore: parseFloat((successProb * 10).toFixed(1)),
-    marketPotential: parseFloat(((successProb + 0.2) * 10).toFixed(1)),
-    executionComplexity: parseFloat(((1 - successProb) * 10).toFixed(1))
-  };
-};
-
-// Hook for validating ideas
 export const useValidateIdea = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<IdeaValidationResult | null>(null);
-  
+
   const validateIdea = async (ideaData: any) => {
+    if (!ideaData?.id) {
+      console.error('❌ useValidateIdea: ID de idea inválido', { ideaData });
+      setError('Datos de idea inválidos: se requiere ID para el caché.');
+      return null;
+    }
+
+    // Verificar caché primero
+    const cacheKey = ideaData.id;
+    if (validationCache.has(cacheKey)) {
+      console.log(`✅ Acierto de caché para ID de idea: ${cacheKey}`);
+      const cachedResult = validationCache.get(cacheKey)!;
+      setResult(cachedResult);
+      return cachedResult;
+    }
+
+    console.log(`❌ Fallo de caché para ID de idea: ${cacheKey}, llamando a evaluateIdeaDetailsWithAI...`);
     setIsLoading(true);
     setError(null);
-    
+
     try {
-      // Check if API is configured
       if (!isApiConfigured()) {
-        console.warn('API not configured, using mock data');
+        console.error('❌ useValidateIdea: API no configurada');
+        throw new Error('API no configurada para validación de IA.');
       }
-      
-      // Simulate API call with timeout
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Get mock validation results
-      const validationResult = mockValidateIdea(ideaData);
+
+      console.log('🌟 Iniciando evaluación de IA para idea:', ideaData.id);
+      const validationResult = await evaluateIdeaDetailsWithAI(ideaData);
+      console.log('🎉 Resultado de evaluación de IA:', validationResult);
+      validationCache.set(cacheKey, validationResult); // Guardar en caché
       setResult(validationResult);
-      
       return validationResult;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      const errorMessage = err instanceof Error ? err.message : 'Ocurrió un error desconocido';
+      console.error('❌ Error en useValidateIdea:', errorMessage, { err });
       setError(errorMessage);
       return null;
     } finally {
       setIsLoading(false);
     }
   };
-  
-  return { validateIdea, isLoading, error, result };
+
+  // Renombramos fetchAndSetAIValidation para mantener consistencia
+  const fetchAndSetAIValidation = validateIdea;
+
+  return { validateIdea, fetchAndSetAIValidation, isLoading, error, result };
 };

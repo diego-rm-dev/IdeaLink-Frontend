@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import PrimaryButton from '@/components/PrimaryButton';
 import { useValidateIdea } from '@/hooks/useValidateIdea';
 import { AI_CONFIG, getApiStatus } from '@/services/aiConfig';
+import { Link } from 'react-router-dom';
 
 const DashboardPage = () => {
   const [activeTab, setActiveTab] = useState('my-ideas');
@@ -35,11 +36,6 @@ const DashboardPage = () => {
     }
   ];
   
-  // Handle new idea submission
-  const handleNewIdea = () => {
-    alert('This would open a form to submit a new idea');
-  };
-  
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -63,9 +59,11 @@ const DashboardPage = () => {
                   </div>
                 </div>
                 <div>
-                  <PrimaryButton onClick={handleNewIdea}>
+                  <Link to="/post-idea">
+                  <PrimaryButton >
                     Post New Idea
                   </PrimaryButton>
+                  </Link>
                 </div>
               </div>
             </div>
@@ -122,7 +120,9 @@ const DashboardPage = () => {
                 ) : (
                   <div className="bg-white rounded-lg shadow-sm p-6 text-center">
                     <p className="text-muted-foreground mb-4">You haven't posted any ideas yet.</p>
-                    <PrimaryButton onClick={handleNewIdea}>Post Your First Idea</PrimaryButton>
+                    <Link to="/post-idea">
+                    <PrimaryButton >Post Your First Idea</PrimaryButton>
+                    </Link>
                   </div>
                 )}
               </TabsContent>

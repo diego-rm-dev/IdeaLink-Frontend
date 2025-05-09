@@ -7,6 +7,8 @@ import Footer from '@/components/Footer';
 import PrimaryButton from '@/components/PrimaryButton';
 import { generateIdea } from '@/services/ideaGeneratorService';
 import { getApiStatus } from '@/services/aiConfig';
+import ReactMarkdown from 'react-markdown';
+
 
 interface GeneratedIdea {
   id: string;
@@ -14,6 +16,7 @@ interface GeneratedIdea {
   response: string;
   timestamp: Date;
 }
+
 
 const IdeaGeneratorPage = () => {
   const [prompt, setPrompt] = useState('');
@@ -66,6 +69,16 @@ const IdeaGeneratorPage = () => {
     promptInputRef.current?.focus();
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleGenerate();
+    }
+  };
+
+
+  
+
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-b from-background to-background/95">
       <Header />
@@ -102,6 +115,7 @@ const IdeaGeneratorPage = () => {
                   ref={promptInputRef}
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
+                  onKeyDown={handleKeyDown}
                   placeholder="E.g., 'I want an innovative SaaS for small restaurants' or 'Generate a physical product idea for sustainable living'"
                   className="w-full h-32 p-3 rounded-md border border-input bg-background focus:border-idea-primary focus:outline-none focus:ring-1 focus:ring-idea-primary transition-all"
                   disabled={isGenerating}
@@ -134,25 +148,28 @@ const IdeaGeneratorPage = () => {
 
             {/* Results Area */}
             {currentIdea && (
-              <div className="bg-card rounded-xl p-6 shadow-sm border border-idea-primary/20 transition-all">
-                <h2 className="text-xl font-medium mb-4">Your Generated Idea</h2>
-                <div className="bg-background rounded-md p-4 border border-border whitespace-pre-wrap">
-                  {currentIdea}
-                </div>
-                <div className="flex justify-end mt-4">
-                  <PrimaryButton 
-                    variant="secondary" 
-                    size="sm"
-                    onClick={() => {
-                      navigator.clipboard.writeText(currentIdea);
-                      toast.success('Copied to clipboard!');
-                    }}
-                  >
-                    Copy to clipboard
-                  </PrimaryButton>
-                </div>
-              </div>
-            )}
+  <div className="bg-card rounded-xl p-6 shadow-sm border border-idea-primary/20 transition-all">
+    <h2 className="text-xl font-medium mb-4">Your Generated Idea</h2>
+    <div className="bg-background rounded-md p-4 border border-border">
+      {/* Wrapping ReactMarkdown with a div and applying whitespace-pre-wrap here */}
+      <div className="whitespace-pre-wrap">
+        <ReactMarkdown>{currentIdea}</ReactMarkdown>
+      </div>
+    </div>
+    <div className="flex justify-end mt-4">
+      <PrimaryButton
+        variant="secondary"
+        size="sm"
+        onClick={() => {
+          navigator.clipboard.writeText(currentIdea);
+          toast.success('Copied to clipboard!');
+        }}
+      >
+        Copy to clipboard
+      </PrimaryButton>
+    </div>
+  </div>
+)}
           </div>
 
           {/* Right Side - History */}

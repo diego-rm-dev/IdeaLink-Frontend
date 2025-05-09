@@ -4,8 +4,8 @@
 export const AI_CONFIG = {
   provider: 'GeminiFlash',
   version: '1.5',
-  apiKey: import.meta.env.VITE_IA_API_KEY || '',
-  endpoint: import.meta.env.VITE_IA_API_ENDPOINT || ''
+  apiKey: import.meta.env.VITE_AI_API_KEY || '',
+  endpoint: import.meta.env.VITE_AI_ENDPOINT || ''
 };
 
 // Helper function to check if API key is configured

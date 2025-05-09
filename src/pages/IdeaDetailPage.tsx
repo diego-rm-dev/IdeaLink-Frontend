@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -45,10 +44,26 @@ const IdeaDetailPage = () => {
     sellerAddress: '0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b',
     saleType: 'fixed' as 'fixed' | 'auction',
   };
-  
+
   const [idea, setIdea] = useState<ExtendedIdea | undefined>(
     mockIdeas.find(i => i.id === id)
   );
+
+  const { fetchAndSetAIValidation, isLoading, error } = useValidateIdea();
+  const { isConnected, connectWallet } = useWallet();
+  const { startConversation } = useMessages();
+  const [validationResult, setValidationResult] = useState<IdeaValidationResult | undefined>(undefined);
+  const [showInvestmentModal, setShowInvestmentModal] = useState(false);
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+
+  const memoizedIdea = useMemo(() => {
+    if (!idea) return undefined;
+    if (idea.id === 'idea2') {
+      return { ...idea, blockchain: mockBlockchainData };
+    }
+    return idea;
+  }, [idea, id]);
+
 
   // Add blockchain data to the idea if it's tokenized
   useEffect(() => {
@@ -59,14 +74,40 @@ const IdeaDetailPage = () => {
       } : undefined);
     }
   }, [id]);
-  
-  const { validateIdea, isLoading } = useValidateIdea();
-  const { isConnected, connectWallet } = useWallet();
-  const { startConversation } = useMessages();
-  const [validationResult, setValidationResult] = useState<IdeaValidationResult | undefined>(idea?.metrics);
-  const [showInvestmentModal, setShowInvestmentModal] = useState(false);
-  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
-  
+
+  // Trigger AI validation on load
+  useEffect(() => {
+    if (memoizedIdea) {
+      const timeout = setTimeout(() => {
+        fetchAndSetAIValidation(memoizedIdea).then((res) => {
+          if (res) {
+            setValidationResult(res);
+          }
+        });
+      }, 500); // Desacelerar la llamada a la API
+      return () => clearTimeout(timeout);
+    }
+  }, [memoizedIdea, fetchAndSetAIValidation]);
+
+
+    if (!memoizedIdea) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-grow flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold mb-4">Idea No Encontrada</h1>
+            <p className="text-muted-foreground mb-6">La idea que buscas no existe o ha sido eliminada.</p>
+            <Link to="/ideas">
+              <SecondaryButton>Explorar Todas las Ideas</SecondaryButton>
+            </Link>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   // If idea is not found in mock data, redirect to 404
   if (!idea) {
     return (
@@ -85,7 +126,7 @@ const IdeaDetailPage = () => {
       </div>
     );
   }
-  
+
   // Get badge color based on status
   const getBadgeVariant = (status: string) => {
     switch (status) {
@@ -95,7 +136,7 @@ const IdeaDetailPage = () => {
       default: return 'outline';
     }
   };
-  
+
   // Format price
   const formattedPrice = new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -105,24 +146,21 @@ const IdeaDetailPage = () => {
 
   // Handle message click
   const handleMessageSeller = async () => {
-    // Start a conversation with the seller
     const newConversation = await startConversation(
       idea.seller.id,
       idea.seller.name,
       idea.seller.avatar
     );
-    
+
     if (newConversation) {
       toast({
         title: "Conversation Started",
         description: `You can now message ${idea.seller.name}`,
       });
-      
-      // Redirect to messages page with the new conversation
       window.location.href = '/messages';
     }
   };
-  
+
   // Handle invest click
   const handleInvest = () => {
     if (idea.blockchain?.isTokenized && !isConnected) {
@@ -133,10 +171,9 @@ const IdeaDetailPage = () => {
       });
       return;
     }
-    
     setShowInvestmentModal(true);
   };
-  
+
   // Handle buy click
   const handleBuy = () => {
     if (idea.blockchain?.isTokenized && !isConnected) {
@@ -147,26 +184,14 @@ const IdeaDetailPage = () => {
       });
       return;
     }
-    
     setShowPurchaseModal(true);
   };
-  
-  // Trigger validation on load
-  useEffect(() => {
-    if (idea) {
-      validateIdea(idea).then(result => {
-        if (result) {
-          setValidationResult(result);
-        }
-      });
-    }
-  }, [idea]);
-  
+
   // Format blockchain address for display
   const formatAddress = (address: string) => {
     return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
   };
-  
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -349,124 +374,131 @@ const IdeaDetailPage = () => {
                 </div>
               </TabsContent>
               
-              <TabsContent value="ai-analysis" className="bg-white rounded-lg shadow-sm p-6 mt-4">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-semibold">AI Analysis</h2>
-                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                    Powered by {AI_CONFIG.provider}
-                  </Badge>
-                </div>
-                
-                <p className="text-muted-foreground mb-6">
-                  Our AI has analyzed this idea based on market trends, potential execution challenges,
-                  and historical data from similar ventures. Here are the results:
-                </p>
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-2xl font-bold text-idea-primary">
-                        {validationResult ? `${(validationResult.successProbability * 100).toFixed(0)}%` : '--'}
-                      </CardTitle>
-                      <CardDescription>Success Probability</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-idea-primary" 
-                          style={{ width: validationResult ? `${validationResult.successProbability * 100}%` : '0%' }}
-                        ></div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-2xl font-bold text-idea-primary">
-                        {validationResult?.riskLevel || '--'}
-                      </CardTitle>
-                      <CardDescription>Risk Level</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center gap-2">
-                        <span className={`inline-block w-3 h-3 rounded-full ${
-                          validationResult?.riskLevel === 'Low' ? 'bg-green-500' : 
-                          validationResult?.riskLevel === 'Medium' ? 'bg-yellow-500' : 'bg-red-500'
-                        }`}></span>
-                        <span className="text-muted-foreground text-sm">
-                          {validationResult?.riskLevel === 'Low' ? 'Lower risk than average' : 
-                           validationResult?.riskLevel === 'Medium' ? 'Average risk level' : 'Higher than average risk'}
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-2xl font-bold text-idea-primary">
-                        {validationResult?.expectedROI || '--'}
-                      </CardTitle>
-                      <CardDescription>Expected ROI</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center gap-2">
-                        <DollarSign size={16} className="text-green-500" />
-                        <span className="text-muted-foreground text-sm">
-                          Potential return on investment
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-                
-                {/* Additional metrics */}
-                {validationResult && (
-                  <div className="border border-border rounded-lg p-4">
-                    <h3 className="font-medium mb-4">Detailed Metrics</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-1">Innovation Score</p>
-                        <div className="flex items-center">
-                          <div className="flex-1 h-2 bg-muted rounded-full mr-2">
-                            <div 
-                              className="h-full bg-purple-500 rounded-full" 
-                              style={{ width: `${validationResult.innovationScore * 10}%` }}
-                            ></div>
-                          </div>
-                          <span className="font-bold">{validationResult.innovationScore}/10</span>
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-1">Market Potential</p>
-                        <div className="flex items-center">
-                          <div className="flex-1 h-2 bg-muted rounded-full mr-2">
-                            <div 
-                              className="h-full bg-blue-500 rounded-full" 
-                              style={{ width: `${validationResult.marketPotential * 10}%` }}
-                            ></div>
-                          </div>
-                          <span className="font-bold">{validationResult.marketPotential}/10</span>
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-1">Execution Complexity</p>
-                        <div className="flex items-center">
-                          <div className="flex-1 h-2 bg-muted rounded-full mr-2">
-                            <div 
-                              className="h-full bg-orange-500 rounded-full" 
-                              style={{ width: `${validationResult.executionComplexity * 10}%` }}
-                            ></div>
-                          </div>
-                          <span className="font-bold">{validationResult.executionComplexity}/10</span>
-                        </div>
-                      </div>
+                <TabsContent value="ai-analysis" className="bg-white rounded-lg shadow-sm p-6 mt-4">
+                  {isLoading && (
+                    <div className="text-center">
+                      <p className="text-muted-foreground">Loading AI analysis...</p>
                     </div>
-                  </div>
-                )}
-              </TabsContent>
-              
+                  )}
+                  {error && (
+                    <Alert variant="destructive">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>Error</AlertTitle>
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
+                  {!isLoading && !error && (
+                    <>
+                      <div className="flex items-center justify-between mb-6">
+                        <h2 className="text-xl font-semibold">AI Analysis</h2>
+                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                          Powered by {AI_CONFIG.provider}
+                        </Badge>
+                      </div>
+                      <p className="text-muted-foreground mb-6">
+                        Our AI has analyzed this idea based on market trends, potential execution challenges,
+                        and historical data from similar ventures. Here are the results:
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <Card>
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-2xl font-bold text-idea-primary">
+                              {validationResult ? `${(validationResult.successProbability * 100).toFixed(0)}%` : '--'}
+                            </CardTitle>
+                            <CardDescription>Success Probability</CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="h-2 bg-muted rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-idea-primary" 
+                                style={{ width: validationResult ? `${validationResult.successProbability * 100}%` : '0%' }}
+                              ></div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                        <Card>
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-2xl font-bold text-idea-primary">
+                              {validationResult?.riskLevel || '--'}
+                            </CardTitle>
+                            <CardDescription>Risk Level</CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="flex items-center gap-2">
+                              <span className={`inline-block w-3 h-3 rounded-full ${
+                                validationResult?.riskLevel === 'Low' ? 'bg-green-500' : 
+                                validationResult?.riskLevel === 'Medium' ? 'bg-yellow-500' : 'bg-red-500'
+                              }`}></span>
+                              <span className="text-muted-foreground text-sm">
+                                {validationResult?.riskLevel === 'Low' ? 'Lower risk than average' : 
+                                 validationResult?.riskLevel === 'Medium' ? 'Average risk level' : 'Higher than average risk'}
+                              </span>
+                            </div>
+                          </CardContent>
+                        </Card>
+                        <Card>
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-2xl font-bold text-idea-primary">
+                              {validationResult?.expectedROI || '--'}
+                            </CardTitle>
+                            <CardDescription>Expected ROI</CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="flex items-center gap-2">
+                              <DollarSign size={16} className="text-green-500" />
+                              <span className="text-muted-foreground text-sm">
+                                Potential return on investment
+                              </span>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                      {validationResult && (
+                        <div className="border border-border rounded-lg p-4">
+                          <h3 className="font-medium mb-4">Detailed Metrics</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div>
+                              <p className="text-sm text-muted-foreground mb-1">Innovation Score</p>
+                              <div className="flex items-center">
+                                <div className="flex-1 h-2 bg-muted rounded-full mr-2">
+                                  <div 
+                                    className="h-full bg-purple-500 rounded-full" 
+                                    style={{ width: `${validationResult.innovationScore * 10}%` }}
+                                  ></div>
+                                </div>
+                                <span className="font-bold">{validationResult.innovationScore}/10</span>
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground mb-1">Market Potential</p>
+                              <div className="flex items-center">
+                                <div className="flex-1 h-2 bg-muted rounded-full mr-2">
+                                  <div 
+                                    className="h-full bg-blue-500 rounded-full" 
+                                    style={{ width: `${validationResult.marketPotential * 10}%` }}
+                                  ></div>
+                                </div>
+                                <span className="font-bold">{validationResult.marketPotential}/10</span>
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground mb-1">Execution Complexity</p>
+                              <div className="flex items-center">
+                                <div className="flex-1 h-2 bg-muted rounded-full mr-2">
+                                  <div 
+                                    className="h-full bg-orange-500 rounded-full" 
+                                    style={{ width: `${validationResult.executionComplexity * 10}%` }}
+                                  ></div>
+                                </div>
+                                <span className="font-bold">{validationResult.executionComplexity}/10</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </TabsContent>
               <TabsContent value="market-potential" className="bg-white rounded-lg shadow-sm p-6 mt-4">
                 <h2 className="text-xl font-semibold mb-4">Market Potential</h2>
                 <p className="text-muted-foreground mb-6">

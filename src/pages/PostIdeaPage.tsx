@@ -18,7 +18,8 @@ import { AI_CONFIG } from '@/services/aiConfig';
 import { useValidateIdea } from '@/hooks/useValidateIdea';
 import { useWallet } from '@/hooks/useWallet';
 import { Badge } from '@/components/ui/badge';
-import { Coins } from 'lucide-react';
+import { CheckCircle, CheckCircleIcon, Coins, XCircle, XCircleIcon } from 'lucide-react';
+import { evaluateIdea } from '@/services/ideaEvaluator';
 
 const categories = [
   "Technology",
@@ -55,6 +56,8 @@ const PostIdeaPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [evaluation, setEvaluation] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const navigate = useNavigate();
   const { validateIdea, isLoading: isValidating, result: validationResult } = useValidateIdea();
   const { isConnected, connectWallet, walletState } = useWallet();
@@ -144,62 +147,66 @@ const PostIdeaPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateForm()) return;
-    
-    setIsLoading(true);
-    
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Placeholder for actual API call
-      // Commented out for now, will be connected to backend later
-      /*
-      const formDataObj = new FormData();
-      
-      // Add all text fields
-      Object.entries(formData).forEach(([key, value]) => {
-        formDataObj.append(key, String(value));
-      });
-      
-      // Add files if present
-      if (files) {
-        for (let i = 0; i < files.length; i++) {
-          formDataObj.append('files', files[i]);
-        }
+  
+    const { title, shortDescription, ...rest } = formData;
+  
+    const payload = {
+      title,
+      description: shortDescription,
+      metadata: {
+        ...rest,
       }
-      
-      // If tokenizing, we would connect to the blockchain here
-      if (formData.tokenizeIdea) {
-        // This would be handled by a smart contract call
-        // const contract = walletService.getContractInstance();
-        // await contract.createIdea(formData.tokenSymbol, parseInt(formData.tokenCount));
-      }
-      
-      const response = await fetch('/api/submit-idea', {
-        method: 'POST',
-        body: formDataObj,
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to submit idea');
-      }
-      
-      const data = await response.json();
-      */
-      
-      // For now, just show a success message
-      alert('Idea submitted!');
-      
-      // Redirect to dashboard after successful submission
-      navigate('/dashboard');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred during submission');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    };
 
+    console.log('Token:', import.meta.env.VITE_JWT_TOKEN);
+
+    const result = await evaluateIdea(payload);
+    setEvaluation(result);
+    setIsModalOpen(true);
+
+    console.log(result
+    )
+
+    if(result.passed){
+      try {
+        setIsLoading(true);
+        
+        const response = await fetch('https://idealink-backend.diegormdev.site/ideas/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_JWT_TOKEN}`
+          },
+          body: JSON.stringify(payload)
+        });
+    
+        if (!response.ok) {
+          throw new Error('Failed to submit idea');
+        }
+    
+        const result = await response.json();
+        console.log('Idea submitted:', result);
+        // redirigir o mostrar éxito
+      } catch (error) {
+        console.error(error);
+        // mostrar error
+      } finally {
+        setIsLoading(false);
+      }
+    }
+   else {
+    // Mostrar modal con retroalimentación
+  }
+
+    }
+
+    const handleEdit = () => {
+      setIsModalOpen(false);
+      // Lógica para permitir la edición de la idea
+    };
+  
+  
+  
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -544,6 +551,15 @@ const PostIdeaPage = () => {
                     Submit Idea
                   </PrimaryButton>
                 </div>
+                
+                {isModalOpen && (
+        <Modal
+          evaluation={evaluation}
+          onClose={() => setIsModalOpen(false)}
+          onEdit={handleEdit}
+        />
+      )}
+
               </form>
             </CardContent>
           </Card>
@@ -554,5 +570,100 @@ const PostIdeaPage = () => {
     </div>
   );
 };
+
+const getScoreColor = (score) => {
+  if (score >= 80) return 'bg-green-500';
+  if (score >= 50) return 'bg-yellow-500';
+  return 'bg-red-500';
+};
+
+
+const Modal = ({ evaluation, onClose, onEdit }) => {
+  const scoreColor =
+    evaluation.score*10 >= 80
+      ? 'bg-green-500'
+      : evaluation.score >= 50
+      ? 'bg-yellow-500'
+      : 'bg-red-500';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-lg w-full mx-4 p-6 relative transition-all max-h-[90vh] overflow-y-auto">
+        {/* Botón de cierre */}
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white"
+          aria-label="Cerrar modal"
+        >
+          <XCircleIcon className="w-6 h-6" />
+        </button>
+
+        {/* Título e ícono */}
+        <div className="flex items-center gap-3 mb-4">
+          {evaluation.passed ? (
+            <CheckCircleIcon className="text-green-600 w-7 h-7" />
+          ) : (
+            <XCircleIcon className="text-red-600 w-7 h-7" />
+          )}
+          <h2
+            className={`text-2xl font-semibold ${
+              evaluation.passed ? 'text-green-600' : 'text-red-600'
+            }`}
+          >
+            {evaluation.passed ? '¡Felicidades!' : 'Requiere Mejoras'}
+          </h2>   
+        </div>
+
+        {/* Retroalimentación */}
+        <p className="text-gray-700 dark:text-gray-300 mb-4 whitespace-pre-line">
+          {evaluation.feedback}
+        </p>
+
+        {/* Visualización del puntaje */}
+        {typeof evaluation.score === 'number' && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
+              Puntaje general: {evaluation.score*10}%
+            </label>
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+              <div
+                className={`h-3 rounded-full ${scoreColor}`}
+                style={{ width: `${evaluation.score*10}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Recomendaciones */}
+        {!evaluation.passed && evaluation.recommendations?.length > 0 && (
+          <ul className="list-disc list-inside text-gray-600 dark:text-gray-400 mb-4 space-y-1">
+            {evaluation.recommendations.map((rec, index) => (
+              <li key={index}>{rec}</li>
+            ))}
+          </ul>
+        )}
+
+        {/* Acciones */}
+        <div className="flex justify-end space-x-3 mt-6">
+          {!evaluation.passed && (
+            <button
+              onClick={onEdit}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+            >
+              Editar Idea
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 transition"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 export default PostIdeaPage;
