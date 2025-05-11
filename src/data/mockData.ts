@@ -222,7 +222,7 @@ export const mockIdeas: Idea[] = [
     title: "Personalized Nutrition Subscription Service",
     description: "A subscription-based service that combines at-home blood testing, AI analysis, and personalized meal kits to optimize nutrition based on individual biochemistry, fitness goals, and dietary preferences.",
     category: "Food & Sustainability",
-    price: 6500,
+    price: 1,
     seller: mockSellers[1],
     status: "published",
     createdAt: "2025-02-18T08:40:00Z",

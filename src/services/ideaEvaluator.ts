@@ -1,5 +1,7 @@
 // ideaEvaluator.ts
 
+import { InvestorAnalysisResult } from "@/hooks/useInvestorAnalysis";
+
 export interface EvaluationResult {
     passed: boolean;
     score: number;
@@ -14,6 +16,17 @@ export interface EvaluationResult {
     marketPotential: number;
     executionComplexity: number;
   }
+
+  export interface InvestorAnalysisResult {
+    successProbability: number;
+    expectedROI: string;
+    riskLevel: 'Low' | 'Medium' | 'High';
+    technicalFeasibility: 'Low' | 'Medium' | 'High';
+    marketReadiness: string;
+    competitiveAdvantage: number;
+    teamAssessment: string;
+  }
+  
 
   export const evaluateIdea = async (idea: {
     title: string;
@@ -172,7 +185,7 @@ Tipo de Venta de Token: ${ideaData.metadata?.tokenSaleType || 'N/A'}
   return fetchAIValidationForIdea(endpoint, apiKey, systemPrompt, userPrompt);
 };
 
-const fetchAIValidationForIdea = async (
+export const fetchAIValidationForIdea = async (
   endpoint: string,
   apiKey: string,
   systemPrompt: string,
@@ -269,4 +282,105 @@ const fetchAIValidationForIdea = async (
     }
   }
   throw new Error('No se pudo obtener la validación de la idea tras múltiples intentos.');
+};
+
+export const fetchAIInvestorAnalysisForIdea = async (
+  endpoint: string,
+  apiKey: string,
+  systemPrompt: string,
+  userPrompt: string,
+  retries: number = 3,
+  initialDelay: number = 1000
+): Promise<InvestorAnalysisResult> => {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    console.log(`🔄 Intento ${attempt} de ${retries} para fetchAIInvestorAnalysisForIdea`);
+
+    try {
+      console.log('🌐 Enviando solicitud a la API:', endpoint);
+      const response = await fetch(`${endpoint}?key=${apiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                { text: systemPrompt },
+                { text: userPrompt },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.7,
+            topP: 0.95,
+            topK: 64,
+            maxOutputTokens: 1024,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Error en la respuesta de la API:', { status: response.status, errorText });
+        if (response.status === 429 && attempt < retries) {
+          const delay = initialDelay * Math.pow(2, attempt - 1); // Backoff exponencial
+          console.log(`⏳ Error 429: Esperando ${delay}ms antes de reintentar...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        throw new Error(`La solicitud a la API falló con el estado ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Respuesta de la API recibida:', JSON.stringify(data, null, 2));
+
+      const aiResponse = data.candidates[0].content.parts[0].text.trim();
+      console.log('📄 Respuesta cruda de la IA:', aiResponse);
+
+      const cleanJsonResponse = (text: string): string => {
+        return text.replace(/^```json\s*|```$/g, '').trim();
+      };
+
+      try {
+        const cleanedResponse = cleanJsonResponse(aiResponse);
+        console.log('🧹 Respuesta limpia:', cleanedResponse);
+        const parsed = JSON.parse(cleanedResponse);
+        console.log('🎯 Respuesta parseada:', parsed);
+
+        // Validar que la respuesta tenga todos los campos esperados
+        if (
+          typeof parsed.successProbability !== 'number' ||
+          typeof parsed.expectedROI !== 'string' ||
+          !['Low', 'Medium', 'High'].includes(parsed.riskLevel) ||
+          !['Low', 'Medium', 'High'].includes(parsed.technicalFeasibility) ||
+          typeof parsed.marketReadiness !== 'string' ||
+          typeof parsed.competitiveAdvantage !== 'number' ||
+          typeof parsed.teamAssessment !== 'string'
+        ) {
+          console.error('❌ Error: Formato de respuesta inválido', parsed);
+          throw new Error('La respuesta de la IA no contiene los campos esperados.');
+        }
+
+        return {
+          successProbability: parsed.successProbability,
+          expectedROI: parsed.expectedROI,
+          riskLevel: parsed.riskLevel,
+          technicalFeasibility: parsed.technicalFeasibility,
+          marketReadiness: parsed.marketReadiness,
+          competitiveAdvantage: parsed.competitiveAdvantage,
+          teamAssessment: parsed.teamAssessment,
+        };
+      } catch (parseError) {
+        console.error('❌ Error al parsear la respuesta de la IA:', parseError, { aiResponse });
+        throw new Error('La respuesta de la IA no está en el formato JSON esperado.');
+      }
+    } catch (error) {
+      console.error(`❌ Error en fetchAIInvestorAnalysisForIdea (intento ${attempt}):`, error);
+      if (attempt === retries) {
+        throw new Error('No se pudo obtener el análisis de inversión tras múltiples intentos: ' + (error instanceof Error ? error.message : 'Error desconocido'));
+      }
+    }
+  }
+  throw new Error('No se pudo obtener el análisis de inversión tras múltiples intentos.');
 };

@@ -1,8 +1,6 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { mockIdeas } from '@/data/mockData';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import PrimaryButton from '@/components/PrimaryButton';
@@ -10,17 +8,192 @@ import { useInvestorAnalysis, InvestorAnalysisResult } from '@/hooks/useInvestor
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { AI_CONFIG } from '@/services/aiConfig';
+import { Loader2 } from 'lucide-react';
+
+// Interfaz para la idea del backend
+interface BackendIdea {
+  id: string;
+  title: string;
+  description: string;
+  metadata: {
+    category: string;
+    executionCost: string;
+    offerRoyalties: boolean;
+    royaltyPercentage: string;
+    royaltyTerms: string;
+    tokenizeIdea: boolean;
+    tokenCount?: string;
+    tokenSymbol?: string;
+    tokenSaleType?: 'fixed' | 'auction';
+    targetMarket?: string;
+    potentialRisks?: string;
+    problemStatement?: string;
+    proposedSolution?: string;
+    [key: string]: any;
+  };
+  createdAt: string;
+  updatedAt: string;
+  userId: string;
+  creator: {
+    id: string;
+    username: string;
+  };
+}
+
+// Interfaz para la idea transformada
+interface ExtendedIdea {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  category: string;
+  createdAt: string;
+  status: 'published' | 'sold' | 'funded';
+  seller: { name: string; id?: string; avatar?: string };
+  royalties?: { percentage: string; terms: string };
+  metrics?: { successProbability: number; expectedROI?: string; riskLevel?: string };
+  views: number;
+  blockchain?: {
+    isTokenized: boolean;
+    tokenSymbol?: string;
+    tokenCount?: number;
+    contractAddress?: string;
+    sellerAddress?: string;
+    saleType?: 'fixed' | 'auction';
+    ideaId?: number;
+  };
+  metadata?: {
+    category: string;
+    executionCost: string;
+    offerRoyalties: boolean;
+    royaltyPercentage: string;
+    royaltyTerms: string;
+    tokenizeIdea: boolean;
+    tokenCount?: string;
+    tokenSymbol?: string;
+    tokenSaleType?: 'fixed' | 'auction';
+    targetMarket?: string;
+    potentialRisks?: string;
+    problemStatement?: string;
+    proposedSolution?: string;
+    [key: string]: any;
+  };
+}
 
 const InvestorsPage = () => {
-  const [selectedIdea, setSelectedIdea] = useState<any | null>(null);
+  const [ideas, setIdeas] = useState<ExtendedIdea[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedIdea, setSelectedIdea] = useState<ExtendedIdea | null>(null);
   const [showAnalysis, setShowAnalysis] = useState(false);
-  const { analyzeIdea, isLoading, result } = useInvestorAnalysis();
-  
-  const handleViewAnalysis = async (idea: any) => {
+  const { analyzeIdea, isLoading: isAnalysisLoading, result } = useInvestorAnalysis();
+
+  // Mapeo estático UUID -> ideaId
+  const UUID_TO_IDEA_ID: Record<string, number> = {
+    '8257d40c-56fb-414b-b6bd-46ee082f9356': 6,
+    '03ad4b5e-9ffb-408f-9e9a-158b9835e6e4': 1,
+    '103e1836-8a61-4e78-a802-01e4347f2a1c': 2,
+    '1670b5ed-1889-4c2e-942d-01c8518db9f8': 3,
+    '1ef71db8-a323-4e73-b263-2a0cdd3bf891': 4,
+  };
+
+  // Obtener ideas del backend
+  useEffect(() => {
+    const fetchIdeas = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        console.log('🔍 Fetching ideas from backend...');
+        const response = await fetch('https://idealink-backend.diegormdev.site/ideas');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const backendIdeas: BackendIdea[] = await response.json();
+        const transformedIdeas = backendIdeas.map((backendIdea) => {
+          const ideaId = UUID_TO_IDEA_ID[backendIdea.id] || 0;
+          return {
+            id: backendIdea.id,
+            title: backendIdea.title,
+            description: backendIdea.description,
+            price: parseFloat(backendIdea.metadata.executionCost) || 0,
+            category: backendIdea.metadata.category || 'Uncategorized',
+            createdAt: backendIdea.createdAt,
+            status: 'published' as 'published' | 'sold' | 'funded',
+            seller: {
+              name: backendIdea.creator.username,
+              id: backendIdea.creator.id,
+              avatar: '',
+            },
+            royalties: backendIdea.metadata.offerRoyalties
+              ? {
+                  percentage: backendIdea.metadata.royaltyPercentage || '0',
+                  terms: backendIdea.metadata.royaltyTerms || 'N/A',
+                }
+              : undefined,
+            metrics: {
+ humiliaciónProbability: 0.7,
+              expectedROI: '30%',
+              riskLevel: 'Medium',
+            },
+            views: 0,
+            blockchain: {
+              isTokenized: backendIdea.metadata.tokenizeIdea || false,
+              tokenSymbol: backendIdea.metadata.tokenSymbol || undefined,
+              tokenCount: backendIdea.metadata.tokenCount ? parseInt(backendIdea.metadata.tokenCount) : undefined,
+              contractAddress: '0xaa69443bEf9FBDDcBa4e1cBb3Aa89396609B1655',
+              sellerAddress: undefined,
+              saleType: backendIdea.metadata.tokenSaleType || 'fixed',
+              ideaId,
+            },
+            metadata: backendIdea.metadata,
+          };
+        });
+        console.log('✅ Ideas transformed:', transformedIdeas);
+        setIdeas(transformedIdeas);
+        setIsLoading(false);
+      } catch (err: any) {
+        console.error('❌ Error fetching ideas:', err);
+        setError('Failed to load ideas. Please try again later.');
+        setIsLoading(false);
+      }
+    };
+
+    fetchIdeas();
+  }, []);
+
+  const handleViewAnalysis = async (idea: ExtendedIdea) => {
     setSelectedIdea(idea);
     await analyzeIdea(idea);
     setShowAnalysis(true);
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-grow flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-grow flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold mb-4">Error Loading Ideas</h1>
+            <p className="text-muted-foreground mb-6">{error}</p>
+            <PrimaryButton onClick={() => window.location.reload()}>Try Again</PrimaryButton>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -48,7 +221,7 @@ const InvestorsPage = () => {
           
           {/* Ideas Listing */}
           <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {mockIdeas.map((idea) => (
+            {ideas.map((idea) => (
               <Card key={idea.id} className="flex flex-col h-full hover:shadow-md transition-shadow duration-200">
                 <CardHeader>
                   <div className="flex justify-between items-start">
@@ -88,7 +261,7 @@ const InvestorsPage = () => {
                 <CardFooter>
                   <PrimaryButton 
                     onClick={() => handleViewAnalysis(idea)} 
-                    isLoading={isLoading && selectedIdea?.id === idea.id} 
+                    isLoading={isAnalysisLoading && selectedIdea?.id === idea.id} 
                     className="w-full"
                   >
                     View Analysis
@@ -102,7 +275,7 @@ const InvestorsPage = () => {
       
       {/* Investment Analysis Dialog */}
       <Dialog open={showAnalysis} onOpenChange={setShowAnalysis}>
-        <DialogContent className="sm:max-w-3xl">
+        <DialogContent className="sm:max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl">Investment Analysis</DialogTitle>
             <DialogDescription>
@@ -196,6 +369,14 @@ const InvestorsPage = () => {
                         {result.technicalFeasibility === 'High' ? '3-6 months' : 
                           result.technicalFeasibility === 'Medium' ? '6-12 months' : '12+ months'}
                       </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Target Market</p>
+                      <p className="font-medium line-clamp-3">{selectedIdea.metadata?.targetMarket || 'Not specified'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Problem Addressed</p>
+                      <p className="font-medium line-clamp-3">{selectedIdea.metadata?.problemStatement || 'Not specified'}</p>
                     </div>
                   </div>
                 </CardContent>

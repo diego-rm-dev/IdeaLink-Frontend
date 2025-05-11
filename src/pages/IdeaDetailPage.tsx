@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { mockIdeas, Idea } from '@/data/mockData';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,13 +15,56 @@ import { useValidateIdea, IdeaValidationResult } from '@/hooks/useValidateIdea';
 import { useWallet } from '@/hooks/useWallet';
 import { useMessages } from '@/hooks/useMessages';
 import { AI_CONFIG } from '@/services/aiConfig';
+import { walletService } from '@/services/walletService';
 import { Eye, Calendar, DollarSign, AlertTriangle, Check, Diamond, Coins, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
 
-// Extend the Idea interface to include blockchain information
-interface ExtendedIdea extends Idea {
+// Interfaz para la idea del backend
+interface BackendIdea {
+  id: string;
+  title: string;
+  description: string;
+  metadata: {
+    category: string;
+    executionCost: string;
+    offerRoyalties: boolean;
+    royaltyPercentage: string;
+    royaltyTerms: string;
+    tokenizeIdea: boolean;
+    tokenCount?: string;
+    tokenSymbol?: string;
+    tokenSaleType?: 'fixed' | 'auction'; // Cambiado de saleType a tokenSaleType
+    targetMarket?: string;
+    potentialRisks?: string;
+    problemStatement?: string;
+    proposedSolution?: string;
+    [key: string]: any;
+  };
+  createdAt: string;
+  updatedAt: string;
+  userId: string;
+  creator: {
+    id: string;
+    username: string;
+  };
+}
+
+// Interfaz para la idea transformada
+export interface ExtendedIdea {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  category: string;
+  createdAt: string;
+  status: 'published' | 'sold' | 'funded';
+  seller: { name: string; id?: string; avatar?: string };
+  royalties?: { percentage: string; terms: string };
+  metrics?: { successProbability: number };
+  views: number;
   blockchain?: {
     isTokenized: boolean;
     tokenSymbol?: string;
@@ -30,67 +72,222 @@ interface ExtendedIdea extends Idea {
     contractAddress?: string;
     sellerAddress?: string;
     saleType?: 'fixed' | 'auction';
+    ideaId?: number;
+  };
+  metadata?: {
+    category: string;
+    executionCost: string;
+    offerRoyalties: boolean;
+    royaltyPercentage: string;
+    royaltyTerms: string;
+    tokenizeIdea: boolean;
+    tokenCount?: string;
+    tokenSymbol?: string;
+    tokenSaleType?: 'fixed' | 'auction'; // Cambiado de saleType a tokenSaleType
+    targetMarket?: string;
+    potentialRisks?: string;
+    problemStatement?: string;
+    proposedSolution?: string;
+    [key: string]: any;
   };
 }
 
+// Mapeo estático UUID -> ideaId (reemplazar con datos del backend si está disponible)
+const UUID_TO_IDEA_ID: Record<string, number> = {
+  '8257d40c-56fb-414b-b6bd-46ee082f9356': 6,
+  '03ad4b5e-9ffb-408f-9e9a-158b9835e6e4': 1,
+  '103e1836-8a61-4e78-a802-01e4347f2a1c': 2,
+  '1670b5ed-1889-4c2e-942d-01c8518db9f8': 3,
+  '1ef71db8-a323-4e73-b263-2a0cdd3bf891': 4,
+};
+
 const IdeaDetailPage = () => {
   const { id } = useParams<{ id: string }>();
-  // Mock blockchain data for demonstration
-  const mockBlockchainData = {
-    isTokenized: id === 'idea2',
-    tokenSymbol: 'ECO',
-    tokenCount: 1000,
-    contractAddress: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
-    sellerAddress: '0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b',
-    saleType: 'fixed' as 'fixed' | 'auction',
-  };
-
-  const [idea, setIdea] = useState<ExtendedIdea | undefined>(
-    mockIdeas.find(i => i.id === id)
-  );
-
-  const { fetchAndSetAIValidation, isLoading, error } = useValidateIdea();
+  const [idea, setIdea] = useState<ExtendedIdea | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { fetchAndSetAIValidation, isLoading: aiLoading, error: aiError } = useValidateIdea();
   const { isConnected, connectWallet } = useWallet();
   const { startConversation } = useMessages();
   const [validationResult, setValidationResult] = useState<IdeaValidationResult | undefined>(undefined);
   const [showInvestmentModal, setShowInvestmentModal] = useState(false);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [releasableAmount, setReleasableAmount] = useState('0');
 
-  const memoizedIdea = useMemo(() => {
-    if (!idea) return undefined;
-    if (idea.id === 'idea2') {
-      return { ...idea, blockchain: mockBlockchainData };
-    }
-    return idea;
-  }, [idea, id]);
-
-
-  // Add blockchain data to the idea if it's tokenized
+  // Obtener detalles de la idea
   useEffect(() => {
-    if (idea && idea.id === 'idea2') {
-      setIdea(prev => prev ? { 
-        ...prev, 
-        blockchain: mockBlockchainData 
-      } : undefined);
+    const fetchIdea = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        console.log(`🔍 Fetching idea with ID: ${id}`);
+        // Intentar endpoint específico /ideas/:id
+        const response = await fetch(`https://idealink-backend.diegormdev.site/ideas/${id}`);
+        if (!response.ok) {
+          // Si /ideas/:id no existe, intentar filtrar desde /ideas
+          console.warn('⚠️ Endpoint /ideas/:id failed, trying /ideas...');
+          const allIdeasResponse = await fetch('https://idealink-backend.diegormdev.site/ideas');
+          if (!allIdeasResponse.ok) {
+            throw new Error(`HTTP error! status: ${allIdeasResponse.status}`);
+          }
+          const allIdeas: BackendIdea[] = await allIdeasResponse.json();
+          const backendIdea = allIdeas.find((idea) => idea.id === id);
+          if (!backendIdea) {
+            throw new Error('Idea not found');
+          }
+          await processIdea(backendIdea);
+        } else {
+          const backendIdea: BackendIdea = await response.json();
+          await processIdea(backendIdea);
+        }
+      } catch (err: any) {
+        console.error('❌ Error fetching idea:', err);
+        setError('Failed to load idea. Please try again later.');
+        setIsLoading(false);
+      }
+    };
+
+    const processIdea = async (backendIdea: BackendIdea) => {
+      const ideaId = UUID_TO_IDEA_ID[backendIdea.id];
+      let status: 'published' | 'sold' | 'funded' = 'published';
+
+      // Consultar estado en el contrato
+      if (ideaId) {
+        try {
+          const contract = walletService.getContractInstance();
+          const ideaStatus = await contract.ideas(ideaId);
+          status = ideaStatus.owner === '0x0000000000000000000000000000000000000000' ? 'published' : 'sold';
+          console.log(`✅ Idea status from contract: ${status}`);
+        } catch (contractErr) {
+          console.warn('⚠️ Could not fetch status from contract:', contractErr);
+        }
+      }
+
+      // Transformar datos
+      const transformedIdea: ExtendedIdea = {
+        id: backendIdea.id,
+        title: backendIdea.title,
+        description: backendIdea.description,
+        price: parseFloat(backendIdea.metadata.executionCost) || 0,
+        category: backendIdea.metadata.category || 'Uncategorized',
+        createdAt: backendIdea.createdAt,
+        status,
+        seller: {
+          name: backendIdea.creator.username,
+          id: backendIdea.creator.id,
+          avatar: '', // Añadir avatar si el backend lo proporciona
+        },
+        royalties: backendIdea.metadata.offerRoyalties
+          ? {
+              percentage: backendIdea.metadata.royaltyPercentage || '0',
+              terms: backendIdea.metadata.royaltyTerms || 'N/A',
+            }
+          : undefined,
+        metrics: { successProbability: 0 },
+        views: 0, // Backend no proporciona views
+        blockchain: {
+          isTokenized: backendIdea.metadata.tokenizeIdea || false,
+          tokenSymbol: backendIdea.metadata.tokenSymbol || undefined,
+          tokenCount: backendIdea.metadata.tokenCount ? parseInt(backendIdea.metadata.tokenCount) : undefined,
+          contractAddress: '0xaa69443bEf9FBDDcBa4e1cBb3Aa89396609B1655', // Actualizar con la dirección real
+          sellerAddress: undefined, // Añadir si el backend lo proporciona
+          saleType: backendIdea.metadata.tokenSaleType || 'fixed', // Usar tokenSaleType
+          ideaId,
+        },
+        metadata: backendIdea.metadata, // Añadir metadata completo
+      };
+
+      console.log('✅ Idea transformed:', transformedIdea);
+      setIdea(transformedIdea);
+      setIsLoading(false);
+    };
+
+    if (id) {
+      fetchIdea();
+    } else {
+      setError('Invalid idea ID');
+      setIsLoading(false);
     }
   }, [id]);
 
-  // Trigger AI validation on load
+  // Manejar wallet y releasableAmount
   useEffect(() => {
-    if (memoizedIdea) {
+    walletService.subscribeToAccountChanges(async (accounts) => {
+      const address = accounts[0] || null;
+      setWalletAddress(address);
+      if (address && id && idea?.blockchain?.ideaId) {
+        try {
+          const amount = await walletService.getReleasableAmount(idea.blockchain.ideaId, address);
+          setReleasableAmount(amount);
+          console.log('🔍 Monto liberable actualizado:', amount);
+        } catch (error) {
+          console.error('❌ Error al obtener monto liberable:', error);
+        }
+      }
+    });
+
+    walletService.subscribeToChainChanges((chainId) => {
+      console.log('🔄 Red cambiada a chainId:', chainId);
+      if (chainId !== 43113) { // Fuji Testnet
+        toast({
+          title: 'Red Incorrecta',
+          description: 'Por favor cambia a Avalanche Fuji Testnet.',
+          variant: 'destructive',
+        });
+      }
+    });
+
+    const checkWallet = async () => {
+      if (walletService.isWalletConnected()) {
+        const address = await walletService.getWalletAddress();
+        if (address && id && idea?.blockchain?.ideaId) {
+          setWalletAddress(address);
+          try {
+            const amount = await walletService.getReleasableAmount(idea.blockchain.ideaId, address);
+            setReleasableAmount(amount);
+            console.log('🔍 Monto liberable inicial:', amount);
+          } catch (error) {
+            console.error('❌ Error al obtener monto liberable:', error);
+          }
+        }
+      }
+    };
+    checkWallet();
+
+    return () => {
+      walletService.unsubscribeFromAccountChanges();
+      walletService.unsubscribeFromChainChanges();
+    };
+  }, [id, idea]);
+
+  // Validación AI
+  useEffect(() => {
+    if (idea) {
       const timeout = setTimeout(() => {
-        fetchAndSetAIValidation(memoizedIdea).then((res) => {
+        fetchAndSetAIValidation(idea).then((res) => {
           if (res) {
             setValidationResult(res);
           }
         });
-      }, 500); // Desacelerar la llamada a la API
+      }, 500);
       return () => clearTimeout(timeout);
     }
-  }, [memoizedIdea, fetchAndSetAIValidation]);
+  }, [idea, fetchAndSetAIValidation]);
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-grow flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
-    if (!memoizedIdea) {
+  if (error || !idea) {
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
@@ -108,26 +305,6 @@ const IdeaDetailPage = () => {
     );
   }
 
-  // If idea is not found in mock data, redirect to 404
-  if (!idea) {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <main className="flex-grow flex items-center justify-center">
-          <div className="text-center">
-            <h1 className="text-3xl font-bold mb-4">Idea Not Found</h1>
-            <p className="text-muted-foreground mb-6">The idea you're looking for doesn't exist or has been removed.</p>
-            <Link to="/ideas">
-              <SecondaryButton>Browse All Ideas</SecondaryButton>
-            </Link>
-          </div>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
-
-  // Get badge color based on status
   const getBadgeVariant = (status: string) => {
     switch (status) {
       case 'published': return 'default';
@@ -137,59 +314,96 @@ const IdeaDetailPage = () => {
     }
   };
 
-  // Format price
   const formattedPrice = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 0,
   }).format(idea.price);
 
-  // Handle message click
   const handleMessageSeller = async () => {
     const newConversation = await startConversation(
-      idea.seller.id,
+      idea.seller.id || '',
       idea.seller.name,
       idea.seller.avatar
     );
 
     if (newConversation) {
       toast({
-        title: "Conversation Started",
-        description: `You can now message ${idea.seller.name}`,
+        title: 'Conversación Iniciada',
+        description: `Ahora puedes enviar mensajes a ${idea.seller.name}`,
       });
       window.location.href = '/messages';
     }
   };
 
-  // Handle invest click
   const handleInvest = () => {
-    if (idea.blockchain?.isTokenized && !isConnected) {
+    if (!isConnected) {
       toast({
-        title: "Wallet Required",
-        description: "Please connect your wallet to invest in tokenized ideas",
-        variant: "destructive"
+        title: 'Wallet Requerido',
+        description: 'Por favor conecta tu wallet para invertir.',
+        variant: 'destructive',
       });
       return;
     }
     setShowInvestmentModal(true);
   };
 
-  // Handle buy click
   const handleBuy = () => {
-    if (idea.blockchain?.isTokenized && !isConnected) {
+    if (!isConnected) {
       toast({
-        title: "Wallet Required",
-        description: "Please connect your wallet to buy tokenized ideas",
-        variant: "destructive"
+        title: 'Wallet Requerido',
+        description: 'Por favor conecta tu wallet para comprar.',
+        variant: 'destructive',
       });
       return;
     }
     setShowPurchaseModal(true);
   };
 
-  // Format blockchain address for display
-  const formatAddress = (address: string) => {
+  const handleReleaseTokens = async () => {
+    if (!isConnected || !id || !walletAddress || !idea.blockchain?.ideaId) {
+      toast({
+        title: 'Wallet Requerido',
+        description: 'Por favor conecta tu wallet para liberar tokens.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      console.log('🔓 Iniciando liberación de tokens para idea:', idea.blockchain.ideaId);
+      const result = await walletService.releaseTokens(idea.blockchain.ideaId);
+      console.log('✅ Tokens liberados:', result);
+      toast({
+        title: 'Tokens Liberados',
+        description: `Has liberado ${result.amount} IDEL.`,
+      });
+      const amount = await walletService.getReleasableAmount(idea.blockchain.ideaId, walletAddress);
+      setReleasableAmount(amount);
+      console.log('🔍 Monto liberable actualizado:', amount);
+    } catch (error: any) {
+      console.error('❌ Error al liberar tokens:', error);
+      const errorMessage = error.reason || error.message || 'No se pudieron liberar los tokens.';
+      toast({
+        title: 'Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const formatAddress = (address?: string) => {
+    if (!address) return '';
     return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+  };
+
+  // Función para formatear texto con saltos de línea en una lista
+  const formatTextToList = (text?: string) => {
+    if (!text) return ['No disponible'];
+    return text
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
   };
 
   return (
@@ -199,7 +413,6 @@ const IdeaDetailPage = () => {
       <main className="flex-grow bg-gray-50 py-12">
         <div className="container mx-auto px-4">
           <div className="max-w-5xl mx-auto">
-            {/* Navigation breadcrumbs */}
             <div className="flex items-center text-sm mb-6">
               <Link to="/" className="text-muted-foreground hover:text-idea-primary transition-colors">Home</Link>
               <span className="mx-2 text-muted-foreground">/</span>
@@ -208,7 +421,6 @@ const IdeaDetailPage = () => {
               <span className="text-idea-primary">{idea.title}</span>
             </div>
             
-            {/* Idea header */}
             <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
               <div className="flex flex-wrap justify-between items-start gap-4">
                 <div>
@@ -258,8 +470,8 @@ const IdeaDetailPage = () => {
                       <AvatarFallback>{idea.seller.name.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <span className="text-sm">
-                      Created by <span className="font-medium">{idea.seller.name}</span>
-                      {idea.blockchain?.isTokenized && idea.blockchain?.sellerAddress && (
+                      Creado por <span className="font-medium">{idea.seller.name}</span>
+                      {idea.blockchain?.sellerAddress && (
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -268,7 +480,7 @@ const IdeaDetailPage = () => {
                               </span>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>Creator's wallet address</p>
+                              <p>Dirección del wallet del creador</p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -281,7 +493,7 @@ const IdeaDetailPage = () => {
                       onClick={handleMessageSeller}
                     >
                       <MessageCircle className="h-3 w-3" />
-                      Message
+                      Mensaje
                     </Button>
                   </div>
                 </div>
@@ -311,25 +523,27 @@ const IdeaDetailPage = () => {
                   
                   {idea.blockchain?.isTokenized && (
                     <div className="text-sm text-blue-700 mb-2 bg-blue-50 px-2 py-1 rounded-md flex items-center">
-                      {idea.blockchain.tokenCount} tokens available
+                      {idea.blockchain.tokenCount} tokens disponibles
                     </div>
                   )}
                   
                   {idea.status === 'published' && (
                     <div className="flex gap-2">
-                      <SecondaryButton onClick={handleInvest}>
-                        {idea.blockchain?.isTokenized ? 'Buy Tokens' : 'Invest'}
+                      <SecondaryButton onClick={handleInvest} disabled={!isConnected}>
+                        {idea.blockchain?.isTokenized ? 'Comprar Tokens' : 'Invertir'}
                       </SecondaryButton>
-                      <PrimaryButton onClick={handleBuy}>Buy Now</PrimaryButton>
+                      <PrimaryButton onClick={handleBuy} disabled={!isConnected}>
+                        Comprar Ahora
+                      </PrimaryButton>
                     </div>
                   )}
                   
                   {idea.status === 'sold' && (
                     <Alert variant="default" className="bg-yellow-50 text-yellow-800 border-yellow-200">
                       <AlertTriangle className="h-4 w-4" />
-                      <AlertTitle>Idea already sold</AlertTitle>
+                      <AlertTitle>Idea ya vendida</AlertTitle>
                       <AlertDescription>
-                        This idea has been purchased and is no longer available.
+                        Esta idea ha sido comprada y ya no está disponible.
                       </AlertDescription>
                     </Alert>
                   )}
@@ -337,9 +551,9 @@ const IdeaDetailPage = () => {
                   {idea.status === 'funded' && (
                     <Alert variant="default" className="bg-green-50 text-green-800 border-green-200">
                       <Check className="h-4 w-4" />
-                      <AlertTitle>Idea funded</AlertTitle>
+                      <AlertTitle>Idea financiada</AlertTitle>
                       <AlertDescription>
-                        This idea has received investment and is being developed.
+                        Esta idea ha recibido inversión y está en desarrollo.
                       </AlertDescription>
                     </Alert>
                   )}
@@ -347,258 +561,226 @@ const IdeaDetailPage = () => {
               </div>
             </div>
             
-            {/* Content tabs */}
             <Tabs defaultValue="description" className="mb-8">
               <TabsList>
-                <TabsTrigger value="description">Description</TabsTrigger>
-                <TabsTrigger value="ai-analysis">AI Analysis</TabsTrigger>
-                <TabsTrigger value="market-potential">Market Potential</TabsTrigger>
+                <TabsTrigger value="description">Descripción</TabsTrigger>
+                <TabsTrigger value="ai-analysis">Análisis AI</TabsTrigger>
+                <TabsTrigger value="market-potential">Potencial de Mercado</TabsTrigger>
                 {idea.blockchain?.isTokenized && (
-                  <TabsTrigger value="blockchain">Blockchain Details</TabsTrigger>
+                  <TabsTrigger value="blockchain">Detalles Blockchain</TabsTrigger>
                 )}
               </TabsList>
               
               <TabsContent value="description" className="bg-white rounded-lg shadow-sm p-6 mt-4">
-                <h2 className="text-xl font-semibold mb-4">Idea Description</h2>
+                <h2 className="text-xl font-semibold mb-4">Descripción de la Idea</h2>
                 <p className="text-muted-foreground mb-6">
                   {idea.description}
                 </p>
                 <div className="bg-muted/30 rounded-lg p-4 border border-border">
-                  <h3 className="font-medium mb-2">Key Features</h3>
+                  <h3 className="font-medium mb-2">Características Clave</h3>
                   <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-                    <li>Innovative solution in the {idea.category} space</li>
-                    <li>Potential for scalable business model</li>
-                    <li>Addresses real market needs with unique approach</li>
-                    <li>Technology-driven implementation possible</li>
+                    <li>Solución innovadora en el espacio {idea.category}</li>
+                    <li>Potencial para un modelo de negocio escalable</li>
+                    <li>Aborda necesidades reales del mercado con un enfoque único</li>
+                    <li>Implementación impulsada por tecnología posible</li>
                   </ul>
                 </div>
               </TabsContent>
               
-                <TabsContent value="ai-analysis" className="bg-white rounded-lg shadow-sm p-6 mt-4">
-                  {isLoading && (
-                    <div className="text-center">
-                      <p className="text-muted-foreground">Loading AI analysis...</p>
+              <TabsContent value="ai-analysis" className="bg-white rounded-lg shadow-sm p-6 mt-4">
+                {aiLoading && (
+                  <div className="text-center">
+                    <p className="text-muted-foreground">Cargando análisis AI...</p>
+                  </div>
+                )}
+                {aiError && (
+                  <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>{aiError}</AlertDescription>
+                  </Alert>
+                )}
+                {!aiLoading && !aiError && (
+                  <>
+                    <div className="flex items-center justify-between mb-6">
+                      <h2 className="text-xl font-semibold">Análisis AI</h2>
+                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                        Desarrollado por {AI_CONFIG.provider}
+                      </Badge>
                     </div>
-                  )}
-                  {error && (
-                    <Alert variant="destructive">
-                      <AlertTriangle className="h-4 w-4" />
-                      <AlertTitle>Error</AlertTitle>
-                      <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                  )}
-                  {!isLoading && !error && (
-                    <>
-                      <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-xl font-semibold">AI Analysis</h2>
-                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                          Powered by {AI_CONFIG.provider}
-                        </Badge>
-                      </div>
-                      <p className="text-muted-foreground mb-6">
-                        Our AI has analyzed this idea based on market trends, potential execution challenges,
-                        and historical data from similar ventures. Here are the results:
-                      </p>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                        <Card>
-                          <CardHeader className="pb-2">
-                            <CardTitle className="text-2xl font-bold text-idea-primary">
-                              {validationResult ? `${(validationResult.successProbability * 100).toFixed(0)}%` : '--'}
-                            </CardTitle>
-                            <CardDescription>Success Probability</CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="h-2 bg-muted rounded-full overflow-hidden">
-                              <div 
-                                className="h-full bg-idea-primary" 
-                                style={{ width: validationResult ? `${validationResult.successProbability * 100}%` : '0%' }}
-                              ></div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                        <Card>
-                          <CardHeader className="pb-2">
-                            <CardTitle className="text-2xl font-bold text-idea-primary">
-                              {validationResult?.riskLevel || '--'}
-                            </CardTitle>
-                            <CardDescription>Risk Level</CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="flex items-center gap-2">
-                              <span className={`inline-block w-3 h-3 rounded-full ${
-                                validationResult?.riskLevel === 'Low' ? 'bg-green-500' : 
-                                validationResult?.riskLevel === 'Medium' ? 'bg-yellow-500' : 'bg-red-500'
-                              }`}></span>
-                              <span className="text-muted-foreground text-sm">
-                                {validationResult?.riskLevel === 'Low' ? 'Lower risk than average' : 
-                                 validationResult?.riskLevel === 'Medium' ? 'Average risk level' : 'Higher than average risk'}
-                              </span>
-                            </div>
-                          </CardContent>
-                        </Card>
-                        <Card>
-                          <CardHeader className="pb-2">
-                            <CardTitle className="text-2xl font-bold text-idea-primary">
-                              {validationResult?.expectedROI || '--'}
-                            </CardTitle>
-                            <CardDescription>Expected ROI</CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="flex items-center gap-2">
-                              <DollarSign size={16} className="text-green-500" />
-                              <span className="text-muted-foreground text-sm">
-                                Potential return on investment
-                              </span>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-                      {validationResult && (
-                        <div className="border border-border rounded-lg p-4">
-                          <h3 className="font-medium mb-4">Detailed Metrics</h3>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div>
-                              <p className="text-sm text-muted-foreground mb-1">Innovation Score</p>
-                              <div className="flex items-center">
-                                <div className="flex-1 h-2 bg-muted rounded-full mr-2">
-                                  <div 
-                                    className="h-full bg-purple-500 rounded-full" 
-                                    style={{ width: `${validationResult.innovationScore * 10}%` }}
-                                  ></div>
-                                </div>
-                                <span className="font-bold">{validationResult.innovationScore}/10</span>
+                    <p className="text-muted-foreground mb-6">
+                      Nuestra IA ha analizado esta idea basándose en tendencias de mercado, desafíos de ejecución potenciales,
+                      y datos históricos de proyectos similares. Aquí están los resultados:
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-2xl font-bold text-idea-primary">
+                            {validationResult ? `${(validationResult.successProbability * 100).toFixed(0)}%` : '--'}
+                          </CardTitle>
+                          <CardDescription>Probabilidad de Éxito</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-idea-primary" 
+                              style={{ width: validationResult ? `${validationResult.successProbability * 100}%` : '0%' }}
+                            ></div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-2xl font-bold text-idea-primary">
+                            {validationResult?.riskLevel || '--'}
+                          </CardTitle>
+                          <CardDescription>Nivel de Riesgo</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex items-center gap-2">
+                            <span className={`inline-block w-3 h-3 rounded-full ${
+                              validationResult?.riskLevel === 'Low' ? 'bg-green-500' : 
+                              validationResult?.riskLevel === 'Medium' ? 'bg-yellow-500' : 'bg-red-500'
+                            }`}></span>
+                            <span className="text-muted-foreground text-sm">
+                              {validationResult?.riskLevel === 'Low' ? 'Riesgo menor al promedio' : 
+                               validationResult?.riskLevel === 'Medium' ? 'Nivel de riesgo promedio' : 'Riesgo mayor al promedio'}
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-2xl font-bold text-idea-primary">
+                            {validationResult?.expectedROI || '--'}
+                          </CardTitle>
+                          <CardDescription>ROI Esperado</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex items-center gap-2">
+                            <DollarSign size={16} className="text-green-500" />
+                            <span className="text-muted-foreground text-sm">
+                              Retorno potencial sobre la inversión
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                    {validationResult && (
+                      <div className="border border-border rounded-lg p-4">
+                        <h3 className="font-medium mb-4">Métricas Detalladas</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          <div>
+                            <p className="text-sm text-muted-foreground mb-1">Puntaje de Innovación</p>
+                            <div className="flex items-center">
+                              <div className="flex-1 h-2 bg-muted rounded-full mr-2">
+                                <div 
+                                  className="h-full bg-purple-500 rounded-full" 
+                                  style={{ width: `${validationResult.innovationScore * 10}%` }}
+                                ></div>
                               </div>
+                              <span className="font-bold">{validationResult.innovationScore}/10</span>
                             </div>
-                            <div>
-                              <p className="text-sm text-muted-foreground mb-1">Market Potential</p>
-                              <div className="flex items-center">
-                                <div className="flex-1 h-2 bg-muted rounded-full mr-2">
-                                  <div 
-                                    className="h-full bg-blue-500 rounded-full" 
-                                    style={{ width: `${validationResult.marketPotential * 10}%` }}
-                                  ></div>
-                                </div>
-                                <span className="font-bold">{validationResult.marketPotential}/10</span>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground mb-1">Potencial de Mercado</p>
+                            <div className="flex items-center">
+                              <div className="flex-1 h-2 bg-muted rounded-full mr-2">
+                                <div 
+                                  className="h-full bg-blue-500 rounded-full" 
+                                  style={{ width: `${validationResult.marketPotential * 10}%` }}
+                                ></div>
                               </div>
+                              <span className="font-bold">{validationResult.marketPotential}/10</span>
                             </div>
-                            <div>
-                              <p className="text-sm text-muted-foreground mb-1">Execution Complexity</p>
-                              <div className="flex items-center">
-                                <div className="flex-1 h-2 bg-muted rounded-full mr-2">
-                                  <div 
-                                    className="h-full bg-orange-500 rounded-full" 
-                                    style={{ width: `${validationResult.executionComplexity * 10}%` }}
-                                  ></div>
-                                </div>
-                                <span className="font-bold">{validationResult.executionComplexity}/10</span>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground mb-1">Complejidad de Ejecución</p>
+                            <div className="flex items-center">
+                              <div className="flex-1 h-2 bg-muted rounded-full mr-2">
+                                <div 
+                                  className="h-full bg-orange-500 rounded-full" 
+                                  style={{ width: `${validationResult.executionComplexity * 10}%` }}
+                                ></div>
                               </div>
+                              <span className="font-bold">{validationResult.executionComplexity}/10</span>
                             </div>
                           </div>
                         </div>
-                      )}
-                    </>
-                  )}
-                </TabsContent>
+                      </div>
+                    )}
+                  </>
+                )}
+              </TabsContent>
+              
               <TabsContent value="market-potential" className="bg-white rounded-lg shadow-sm p-6 mt-4">
-                <h2 className="text-xl font-semibold mb-4">Market Potential</h2>
+                <h2 className="text-xl font-semibold mb-4">Potencial de Mercado</h2>
                 <p className="text-muted-foreground mb-6">
-                  Based on current market analysis and trends, this idea shows significant potential in the {idea.category} sector.
+                  Basado en análisis de mercado actual y tendencias, esta idea muestra un potencial significativo en el sector {idea.category}.
                 </p>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                   <div className="border border-border rounded-lg p-4">
-                    <h3 className="font-medium mb-2">Target Market</h3>
+                    <h3 className="font-medium mb-2">Mercado Objetivo</h3>
                     <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-                      <li>Primary demographic: 25-45 year old professionals</li>
-                      <li>Urban and suburban markets</li>
-                      <li>Tech-savvy early adopters</li>
-                      <li>Estimated market size: $2.5B annually</li>
+                      {formatTextToList(idea.metadata?.targetMarket).map((item, index) => (
+                        <li key={index}>{item}</li>
+                      ))}
                     </ul>
                   </div>
                   
                   <div className="border border-border rounded-lg p-4">
-                    <h3 className="font-medium mb-2">Competitive Landscape</h3>
+                    <h3 className="font-medium mb-2">Riesgos Potenciales</h3>
                     <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-                      <li>3-5 indirect competitors</li>
-                      <li>No direct competitors with the same approach</li>
-                      <li>Low barrier to entry but high execution complexity</li>
-                      <li>Potential for first-mover advantage</li>
+                      {formatTextToList(idea.metadata?.potentialRisks).map((item, index) => (
+                        <li key={index}>{item}</li>
+                      ))}
                     </ul>
                   </div>
                 </div>
                 
                 <div className="border border-border rounded-lg p-4">
-                  <h3 className="font-medium mb-2">Growth Projections</h3>
+                  <h3 className="font-medium mb-2">Problema y Solución</h3>
                   <p className="text-muted-foreground mb-4">
-                    With proper execution and funding, this idea has the potential for:
+                    <strong>Problema:</strong> {idea.metadata?.problemStatement || 'No disponible'}
                   </p>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span>Year 1 Revenue</span>
-                        <span className="font-medium">$250K - $500K</span>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full">
-                        <div className="h-full bg-green-500 rounded-full" style={{ width: '20%' }}></div>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span>Year 3 Revenue</span>
-                        <span className="font-medium">$1.2M - $2.5M</span>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full">
-                        <div className="h-full bg-green-500 rounded-full" style={{ width: '50%' }}></div>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span>Year 5 Revenue</span>
-                        <span className="font-medium">$5M - $10M</span>
-                      </div>
-                      <div className="h-2 bg-muted rounded-full">
-                        <div className="h-full bg-green-500 rounded-full" style={{ width: '80%' }}></div>
-                      </div>
-                    </div>
-                  </div>
+                  <p className="text-muted-foreground">
+                    <strong>Solución:</strong> {idea.metadata?.proposedSolution || 'No disponible'}
+                  </p>
                 </div>
               </TabsContent>
               
-              {/* New Blockchain Tab */}
               {idea.blockchain?.isTokenized && (
                 <TabsContent value="blockchain" className="bg-white rounded-lg shadow-sm p-6 mt-4">
-                  <h2 className="text-xl font-semibold mb-4">Blockchain Details</h2>
+                  <h2 className="text-xl font-semibold mb-4">Detalles Blockchain</h2>
                   <p className="text-muted-foreground mb-6">
-                    This idea has been tokenized on the blockchain, providing transparency, security, 
-                    and fractional ownership opportunities.
+                    Esta idea ha sido tokenizada en la blockchain, proporcionando transparencia, seguridad, 
+                    y oportunidades de propiedad fraccionada.
                   </p>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div className="border border-border rounded-lg p-4 bg-blue-50/30">
                       <h3 className="font-medium mb-4 flex items-center">
                         <Coins className="h-5 w-5 mr-2 text-blue-600" />
-                        Token Information
+                        Información del Token
                       </h3>
                       <div className="space-y-3">
                         <div>
-                          <p className="text-sm text-muted-foreground">Token Symbol</p>
-                          <p className="font-medium">{idea.blockchain.tokenSymbol}</p>
+                          <p className="text-sm text-muted-foreground">Símbolo del Token</p>
+                          <p className="font-medium">{idea.blockchain.tokenSymbol || 'N/A'}</p>
                         </div>
                         <div>
-                          <p className="text-sm text-muted-foreground">Total Supply</p>
-                          <p className="font-medium">{idea.blockchain.tokenCount?.toLocaleString()}</p>
+                          <p className="text-sm text-muted-foreground">Suministro Total</p>
+                          <p className="font-medium">{idea.blockchain.tokenCount?.toLocaleString() || 'N/A'}</p>
                         </div>
                         <div>
-                          <p className="text-sm text-muted-foreground">Sale Type</p>
-                          <p className="font-medium capitalize">{idea.blockchain.saleType}</p>
+                          <p className="text-sm text-muted-foreground">Tipo de Venta</p>
+                          <p className="font-medium capitalize">{idea.blockchain.saleType || 'N/A'}</p>
                         </div>
                         <div>
-                          <p className="text-sm text-muted-foreground">Contract Address</p>
+                          <p className="text-sm text-muted-foreground">Dirección del Contrato</p>
                           <div className="flex items-center">
-                            <p className="font-medium font-mono text-sm">{formatAddress(idea.blockchain.contractAddress || '')}</p>
+                            <p className="font-medium font-mono text-sm">{formatAddress(idea.blockchain.contractAddress)}</p>
                             <Button
                               variant="ghost"
                               size="sm"
@@ -607,8 +789,8 @@ const IdeaDetailPage = () => {
                                 if (idea.blockchain?.contractAddress) {
                                   navigator.clipboard.writeText(idea.blockchain.contractAddress);
                                   toast({
-                                    title: "Address Copied",
-                                    description: "Contract address copied to clipboard",
+                                    title: 'Dirección Copiada',
+                                    description: 'Dirección del contrato copiada al portapapeles',
                                   });
                                 }
                               }}
@@ -619,64 +801,75 @@ const IdeaDetailPage = () => {
                             </Button>
                           </div>
                         </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Tokens Liberables</p>
+                          <p className="font-medium">{releasableAmount} IDEL</p>
+                        </div>
                       </div>
+                      <Button
+                        onClick={handleReleaseTokens}
+                        disabled={releasableAmount === '0' || !isConnected}
+                        className="mt-4"
+                      >
+                        Liberar Tokens
+                      </Button>
                     </div>
                     
                     <div className="border border-border rounded-lg p-4">
-                      <h3 className="font-medium mb-4">Benefits of Tokenization</h3>
+                      <h3 className="font-medium mb-4">Beneficios de la Tokenización</h3>
                       <ul className="list-disc pl-5 space-y-2 text-muted-foreground">
                         <li>
-                          <span className="font-medium text-black">Fractional Ownership:</span> 
-                          <span className="block text-sm">Investors can purchase partial ownership in the idea</span>
+                          <span className="font-medium text-black">Propiedad Fraccionada:</span> 
+                          <span className="block text-sm">Los inversores pueden comprar propiedad parcial en la idea</span>
                         </li>
                         <li>
-                          <span className="font-medium text-black">Transparent Transactions:</span> 
-                          <span className="block text-sm">All transactions are recorded on the blockchain</span>
+                          <span className="font-medium text-black">Transacciones Transparentes:</span> 
+                          <span className="block text-sm">Todas las transacciones se registran en la blockchain</span>
                         </li>
                         <li>
-                          <span className="font-medium text-black">Smart Contract Automation:</span> 
-                          <span className="block text-sm">Royalty payments and ownership transfers are automated</span>
+                          <span className="font-medium text-black">Automatización de Contratos Inteligentes:</span> 
+                          <span className="block text-sm">Pagos de regalías y transferencias de propiedad son automatizados</span>
                         </li>
                         <li>
-                          <span className="font-medium text-black">Value Growth:</span> 
-                          <span className="block text-sm">Token value can appreciate as the idea gains traction</span>
+                          <span className="font-medium text-black">Crecimiento de Valor:</span> 
+                          <span className="block text-sm">El valor del token puede apreciarse a medida que la idea gana tracción</span>
                         </li>
                       </ul>
                     </div>
                   </div>
                   
                   <div className="border border-border rounded-lg p-4 bg-blue-50/20">
-                    <h3 className="font-medium mb-2">How to Invest in Tokens</h3>
+                    <h3 className="font-medium mb-2">Cómo Invertir en Tokens</h3>
                     <p className="text-muted-foreground mb-4">
-                      To invest in this tokenized idea, connect your Web3 wallet and follow these steps:
+                      Para invertir en esta idea tokenizada, conecta tu wallet Web3 y sigue estos pasos:
                     </p>
                     
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="bg-white p-3 rounded-md border border-border">
                         <div className="flex items-center mb-2">
                           <div className="h-6 w-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-medium mr-2">1</div>
-                          <h4 className="font-medium">Connect Wallet</h4>
+                          <h4 className="font-medium">Conectar Wallet</h4>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          Click the "Connect Wallet" button in the navigation bar
+                          Haz clic en el botón "Conectar Wallet" en la barra de navegación
                         </p>
                       </div>
                       <div className="bg-white p-3 rounded-md border border-border">
                         <div className="flex items-center mb-2">
                           <div className="h-6 w-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-medium mr-2">2</div>
-                          <h4 className="font-medium">Select Amount</h4>
+                          <h4 className="font-medium">Seleccionar Monto</h4>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          Choose how many tokens you'd like to purchase
+                          Elige cuántos tokens deseas comprar
                         </p>
                       </div>
                       <div className="bg-white p-3 rounded-md border border-border">
                         <div className="flex items-center mb-2">
                           <div className="h-6 w-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-medium mr-2">3</div>
-                          <h4 className="font-medium">Confirm Transaction</h4>
+                          <h4 className="font-medium">Confirmar Transacción</h4>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          Confirm the purchase in your wallet when prompted
+                          Confirma la compra en tu wallet cuando se te solicite
                         </p>
                       </div>
                     </div>
@@ -685,25 +878,26 @@ const IdeaDetailPage = () => {
               )}
             </Tabs>
             
-            {/* Call to action */}
             {idea.status === 'published' && (
               <div className="bg-idea-primary/5 border border-idea-primary/20 rounded-lg p-6 text-center">
-                <h2 className="text-xl font-bold mb-2">Ready to bring this idea to life?</h2>
+                <h2 className="text-xl font-bold mb-2">¿Listo para dar vida a esta idea?</h2>
                 <p className="text-muted-foreground mb-6">
                   {idea.blockchain?.isTokenized 
-                    ? 'Purchase this idea outright or invest in tokens to become a partial owner.'
-                    : 'Purchase this idea now or invest to become a partner in its development.'
+                    ? 'Compra esta idea directamente o invierte en tokens para convertirte en propietario parcial.'
+                    : 'Compra esta idea ahora o invierte para convertirte en socio en su desarrollo.'
                   }
                 </p>
                 <div className="flex flex-wrap justify-center gap-4">
-                  {!isConnected && idea.blockchain?.isTokenized ? (
-                    <SecondaryButton onClick={connectWallet}>Connect Wallet to Invest</SecondaryButton>
+                  {!isConnected ? (
+                    <SecondaryButton onClick={connectWallet}>Conectar Wallet</SecondaryButton>
                   ) : (
                     <SecondaryButton onClick={handleInvest}>
-                      {idea.blockchain?.isTokenized ? 'Buy Tokens' : 'Invest in This Idea'}
+                      {idea.blockchain?.isTokenized ? 'Comprar Tokens' : 'Invertir en Esta Idea'}
                     </SecondaryButton>
                   )}
-                  <PrimaryButton onClick={handleBuy}>Buy For {formattedPrice}</PrimaryButton>
+                  <PrimaryButton onClick={handleBuy} disabled={!isConnected}>
+                    Comprar por {formattedPrice}
+                  </PrimaryButton>
                 </div>
               </div>
             )}
@@ -711,7 +905,6 @@ const IdeaDetailPage = () => {
         </div>
       </main>
       
-      {/* Investment Modal */}
       {idea && (
         <InvestmentModal
           idea={idea}
@@ -720,7 +913,6 @@ const IdeaDetailPage = () => {
         />
       )}
       
-      {/* Purchase Modal */}
       {idea && (
         <PurchaseModal
           idea={idea}
